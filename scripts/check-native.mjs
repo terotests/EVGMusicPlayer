@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // A smoke check of the native player: run it for a few frames with a made-up
 // WAV, read back the last frame and check that

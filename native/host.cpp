@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // The native EVG Player: the same PlayerApp (PlayerApp.rgr, compiled to C++
 // by Ranger) in a window that is the shape of the skin.

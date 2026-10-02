@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // macOS: a borderless SDL window made see-through, so the alpha the player
 // paints is the window's alpha: the transparent parts are not drawn, clicks

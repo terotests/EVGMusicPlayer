@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // native/icon/icon-1024.png, drawn by the player itself: the round screen in
 // its bezel, lit with a fixed spectrum (`evg-player --icon`). The macOS build

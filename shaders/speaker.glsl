@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // evgp-speaker: a speaker cone pushed by p_level (the bass).
 vec4 fxColor(vec2 p, vec2 local) {
   vec2 uv = (local - 0.5) * 2.0;

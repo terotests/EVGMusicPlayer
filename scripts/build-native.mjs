@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // The native player: PlayerApp.rgr → C++ (Ranger), then one SDL2 + OpenGL
 // binary with the host in native/.

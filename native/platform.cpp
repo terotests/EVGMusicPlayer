@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // See platform.h. The window parts for macOS are in mac_window.mm.
 
 #include "platform.h"

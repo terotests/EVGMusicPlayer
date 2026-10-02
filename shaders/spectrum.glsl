@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // evgp-spectrum: the round screen. Three visualisers over 32 band levels
 // (p_b0..p_b31), chosen by p_mode. Shared by the WebGL page (web/viz.js) and
 // the native host (native/host.cpp); both supply fxColor's inputs and the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // Playback and analysis for the native player: what <audio> and the Web Audio
 // AnalyserNode do for the page.

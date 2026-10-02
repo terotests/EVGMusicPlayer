@@ -9,7 +9,7 @@ native desktop app whose window is the shape of the skin.
 **Live page: <https://terotests.github.io/EVGMusicPlayer/>** (built from `main`
 by `.github/workflows/pages.yml`).
 
-**License: AGPL-3.0-or-later** (see `LICENSE`).
+**License: MIT** (see `LICENSE`). Third-party files keep their own: `native/third_party/dr_mp3.h` (public domain / MIT-0), `native/fonts/` (Noto Sans, Apache 2.0).
 
 ## Building
 

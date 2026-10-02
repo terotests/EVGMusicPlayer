@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Helpers every player effect gets, prepended to each one.
 vec3 vzHue(float deg) {
   float h = fract(deg / 360.0) * 6.0;
