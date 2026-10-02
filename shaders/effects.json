@@ -1,0 +1,6 @@
+[
+  { "name": "evgp-spectrum", "file": "spectrum.glsl", "bands": 32,
+    "params": { "level": 0, "mode": 0, "hue": 205, "hue2": 275, "playing": 0 } },
+  { "name": "evgp-speaker", "file": "speaker.glsl", "bands": 0,
+    "params": { "level": 0, "hue": 205 } }
+]

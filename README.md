@@ -3,7 +3,8 @@
 A skinned music player in the spirit of the old Windows Media Player skins:
 the player is a shape, not a window, its chrome is painted, and the round
 screen in the middle is a GPU visualiser driven by the music. Written in
-Ranger, drawn by EVG's WebGL painter.
+Ranger and drawn by EVG: in a browser with EVG's WebGL painter, and as a
+native desktop app whose window is the shape of the skin.
 
 **License: AGPL-3.0-or-later** (see `LICENSE`).
 
@@ -42,6 +43,53 @@ levels without any audio.
 | drop button / `k` | skin: ice, lime, ember |
 | space, ← →, `s`, `o` | play/pause, previous/next, stop, open |
 
+## Native app (macOS, Linux)
+
+The same `PlayerApp.rgr`, compiled to C++ by Ranger, in a borderless window
+cut to the skin's outline: nothing around the player, clicks outside it go to
+whatever is behind, and the body drags the window.
+
+```sh
+# macOS: brew install sdl2            Linux: sudo apt-get install libsdl2-dev libgl-dev
+npm run native                        # -> native/build/evg-player (+ "EVG Player.app" on macOS)
+native/build/evg-player ~/Music/*.mp3 # or open it and use the note / folder buttons
+npm run native:check                  # smoke check: transparent corners, a track playing
+```
+
+Plays MP3 (dr_mp3) and WAV. Close and minimise are the two small buttons on
+the crest; Esc or Q also quits. Files can be passed on the command line or
+dropped on the window. The file and folder buttons use `osascript` on macOS
+and `zenity` or `kdialog` on Linux.
+
+How the shape is made:
+
+- **macOS** — the window is not opaque, its background is clear and the
+  OpenGL surface's opacity is 0 (`native/mac_window.mm`). The alpha the
+  painter leaves is the window's alpha, so the edge is antialiased and the
+  system shadow follows the outline.
+- **Linux (X11)** and other SDL2 platforms — `SDL_CreateShapedWindow` with a
+  mask read back from the first frame. The edge is hard (1 bit), since X11
+  has no per-pixel window alpha without a compositor.
+
+`native/`:
+
+- `host.cpp` — the window, input, file pickers and the frame loop: web/main.js
+  for a desktop. It includes the Ranger-generated `PlayerApp.cpp`.
+- `painter.cpp` — EVG's display-list JSON drawn with OpenGL 3.3: rounded and
+  gradient boxes with shadows, stencil-filled paths, strokes, text through
+  stb_truetype, and the surface effects. The effects are the same GLSL files
+  the browser compiles (`shaders/`).
+- `audio.cpp` — playback through SDL audio and the analyser: a Blackman
+  window, 2048-point FFT, the browser analyser's smoothing and dB range, then
+  the same 32 bands as the page.
+- `third_party/` — `stb_truetype.h` and `dr_mp3.h` (public domain / MIT);
+  `fonts/` — Noto Sans (Apache 2.0, `fonts/LICENSE-Apache-2.0.txt`).
+
+The macOS build has not been run yet: it was written against the same SDL2
+and OpenGL calls the Linux build uses and checked there (under Xvfb with
+Mesa), plus the AppKit calls in `mac_window.mm`. Windows would need an OpenGL
+loader and is not wired up.
+
 ## How it is put together
 
 - `PlayerApp.rgr` — the skin's tree (the body, wings, crest and chin are SVG
@@ -50,7 +98,9 @@ levels without any audio.
   the app never touches audio or files.
 - `player.css` — every colour and position. The three skins are `@vars`
   themes; switching skin is `applyTree(root, "lime")`.
-- `web/viz.js` — two surface effects registered with EVG's painter:
+- `shaders/` — the effects' GLSL and their parameters (`effects.json`),
+  shared by the page and the native app.
+- `web/viz.js` — registers them as surface effects with EVG's painter:
   `evgp-spectrum` (the screen, 32 band parameters `b0`…`b31`, `level`,
   `mode`) and `evgp-speaker` (the cones, pulsed by `level`).
 - `scripts/build.mjs` — compiles against the Ranger checkout and runs
@@ -68,8 +118,6 @@ press outside the shape does nothing.
 
 ## Limits
 
-- Browser only. No EVG host makes a shaped OS-level window yet (the SDL hosts
-  open ordinary rectangular windows).
 - EVG draws box shadows around boxes, not around path outlines, and does not
   clip to a path; the skin is built from shapes that do not need either.
 - Titles are file names; ID3 tags are not read.

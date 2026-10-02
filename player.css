@@ -307,6 +307,7 @@
 .icon-small { left: 9px; top: 9px; width: 20px; height: 20px; }
 .icon-big   { left: 13px; top: 13px; width: 30px; height: 30px; fill: var(--play-ink); }
 .icon-tiny  { left: 6px; top: 6px; width: 16px; height: 16px; }
+.icon-mini  { left: 4px; top: 4px; width: 12px; height: 12px; }
 
 .big {
   width: 56px;
@@ -329,6 +330,16 @@
 .b-file   { left: 230px; top: 536px; }
 .b-folder { left: 266px; top: 540px; }
 .b-stop   { left: 302px; top: 536px; }
+
+.mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+}
+
+/* Only in the native window, which has no title bar of its own. */
+.b-min   { left: 252px; top: 34px; }
+.b-close { left: 288px; top: 34px; }
 
 .b-viz  { left: 48px;  top: 148px; }
 .b-skin { left: 484px; top: 148px; }

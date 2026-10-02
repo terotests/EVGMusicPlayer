@@ -61,6 +61,10 @@ class PlayerApp {
     def noteText:string ""
     def noteMs:double 0.0
 
+    ; A native window has no title bar, so the skin carries its own close and
+    ; minimise buttons. Set by the host before `init`; the page leaves it off.
+    def nativeChrome:boolean false
+
     def marquee:double 0.0
     def titleWidth:double 0.0
 
@@ -77,6 +81,10 @@ class PlayerApp {
         themeLabels = ([] _:string ("ICE" "LIME" "EMBER"))
         vizNames = ([] _:string ("RING" "TUNNEL" "BARS"))
         titles = ([] _:string ())
+    }
+
+    fn setNativeChrome:void (on:boolean) {
+        nativeChrome = on
     }
 
     fn init:void (css:string) {
@@ -140,6 +148,12 @@ class PlayerApp {
         }
         if (name == "skin") {
             return "M12 2C8 7 5 10.5 5 14a7 7 0 0 0 14 0c0-3.5-3-7-7-12z"
+        }
+        if (name == "close") {
+            return "M5.7 4.3L12 10.6l6.3-6.3 1.4 1.4L13.4 12l6.3 6.3-1.4 1.4L12 13.4l-6.3 6.3-1.4-1.4L10.6 12 4.3 5.7z"
+        }
+        if (name == "min") {
+            return "M5 11h14v2H5z"
         }
         return ""
     }
@@ -244,6 +258,10 @@ class PlayerApp {
         page.addChild((PlayerApp.button("stop" "tiny" "b-stop" "stop")))
         page.addChild((PlayerApp.button("viz" "tiny" "b-viz" "viz")))
         page.addChild((PlayerApp.button("skin" "tiny" "b-skin" "skin")))
+        if nativeChrome {
+            page.addChild((PlayerApp.button("min" "mini" "b-min" "min")))
+            page.addChild((PlayerApp.button("close" "mini" "b-close" "close")))
+        }
         return page
     }
 
@@ -337,6 +355,9 @@ class PlayerApp {
         }
         if (id == "open-folder") {
             return "open-folder"
+        }
+        if ((id == "close") || (id == "min")) {
+            return id
         }
         if (id == "skin") {
             themeIndex = ((themeIndex + 1) % (array_length themes))
