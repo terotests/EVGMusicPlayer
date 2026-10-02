@@ -5,8 +5,8 @@
 // file, wrapped here as an ES module; EVG's browser helpers are copied beside
 // the page, following their relative imports.
 //
-//   node web/build.mjs --lib <ranger>/lib             # assemble into web/
-//   node web/build.mjs --lib <ranger>/lib --out DIR   # and copy the site to DIR
+//   node web/build.mjs --evg <evg package dir>             # assemble into web/
+//   node web/build.mjs --evg <evg package dir> --out DIR   # and copy the site to DIR
 //
 // Normally run by scripts/build.mjs, which compiles PlayerApp.rgr first.
 
@@ -17,8 +17,15 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MODULE = path.join(HERE, "..");
 const argv = process.argv.slice(2);
-const libFlag = argv.indexOf("--lib");
-const LIB = path.resolve(libFlag >= 0 ? argv[libFlag + 1] : path.join(MODULE, "..", "Ranger", "lib"));
+const evgFlag = argv.indexOf("--evg");
+if (evgFlag < 0) {
+  console.error("usage: node web/build.mjs --evg <dir> — run it through `npm run build`");
+  process.exit(2);
+}
+// The page imports EVG's helpers as `./evg/gl/…`; the package is EVG's storm/
+// directory, so `evg/` is its root.
+const EVG = path.resolve(argv[evgFlag + 1]);
+const helperSource = (rel) => path.join(EVG, rel.replace(/^evg\//, ""));
 const outFlag = argv.indexOf("--out");
 const OUT = outFlag >= 0 ? path.resolve(argv[outFlag + 1]) : null;
 
@@ -70,9 +77,9 @@ const queue = [...ENTRY];
 while (queue.length) {
   const rel = queue.shift();
   if (helpers.has(rel)) continue;
-  const from = path.join(LIB, rel);
+  const from = helperSource(rel);
   if (!fs.existsSync(from)) {
-    console.error(`the page imports ${rel}, which is not in ${LIB} — run \`npm run deps\` in the Ranger checkout`);
+    console.error(`the page imports ${rel}, which is not in the EVG package ${EVG}`);
     process.exit(4);
   }
   helpers.add(rel);
@@ -84,7 +91,7 @@ function copyHelpers(root) {
   for (const rel of helpers) {
     const to = path.join(root, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.copyFileSync(path.join(LIB, rel), to);
+    fs.copyFileSync(helperSource(rel), to);
   }
 }
 copyHelpers(HERE);

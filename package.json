@@ -6,10 +6,14 @@
   "description": "A skinned music player written in Ranger and drawn by EVG's WebGL painter",
   "type": "module",
   "scripts": {
+    "deps": "rgrc install",
     "build": "node scripts/build.mjs",
     "web": "node scripts/build.mjs && node web/serve.mjs",
     "native": "node scripts/build-native.mjs",
     "native:run": "node scripts/build-native.mjs --run",
     "native:check": "node scripts/check-native.mjs"
+  },
+  "devDependencies": {
+    "ranger-compiler": "4.0.1"
   }
 }

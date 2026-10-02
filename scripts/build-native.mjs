@@ -4,11 +4,12 @@
 // The native player: PlayerApp.rgr → C++ (Ranger), then one SDL2 + OpenGL
 // binary with the host in native/.
 //
-//   node scripts/build-native.mjs [--ranger DIR] [--run [args…]]
+//   node scripts/build-native.mjs [--run [args…]]
 //
-// Needs a Ranger checkout (as scripts/build.mjs), a C++17 compiler and SDL2:
+// Needs `npm install` (ranger-compiler), a C++17 compiler and SDL2:
 //   macOS:          brew install sdl2           (Xcode command line tools)
 //   Debian/Ubuntu:  sudo apt-get install libsdl2-dev libgl-dev
+// EVG is fetched from terotests/evg by `rgrc install` (scripts/ranger.mjs).
 //
 // Writes native/build/evg-player and native/build/fonts/; on macOS also
 // native/build/EVG Player.app.
@@ -16,38 +17,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, execSync, spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { ROOT, install, compile } from "./ranger.mjs";
 
-const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NATIVE = path.join(ROOT, "native");
 const BUILD = path.join(NATIVE, "build");
 const argv = process.argv.slice(2);
-const flag = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null; };
-const RANGER = path.resolve(flag("--ranger") || process.env.RANGER_DIR || path.join(ROOT, "..", "Ranger"));
 const runAt = argv.indexOf("--run");
 const MAC = process.platform === "darwin";
 
 const die = (msg) => { console.error(msg); process.exit(1); };
-const rgrc = path.join(RANGER, "dist", "rgrc.js");
-if (!fs.existsSync(rgrc)) die(`no Ranger compiler at ${rgrc} — pass --ranger <checkout> or set RANGER_DIR`);
-if (!fs.existsSync(path.join(RANGER, "lib", "evg", "EVGElement.rgr"))) {
-  die(`${RANGER}/lib/evg is missing — run \`npm run deps\` (or \`npm ci\`) in the Ranger checkout`);
-}
 fs.mkdirSync(BUILD, { recursive: true });
 
 // --- 1. Ranger → C++ -------------------------------------------------------------
-const overlay = path.join(RANGER, "gallery", "evgmusicplayer");
-fs.mkdirSync(overlay, { recursive: true });
-for (const f of ["PlayerApp.rgr", "ranger.json"]) fs.copyFileSync(path.join(ROOT, f), path.join(overlay, f));
-const cpp = path.join(BUILD, "PlayerApp.cpp");
-fs.rmSync(cpp, { force: true });
-const r = spawnSync("node", [rgrc, "-l=cpp", "-nodecli", path.join(overlay, "PlayerApp.rgr"), `-d=${BUILD}`, "-o=PlayerApp.cpp"],
-  { cwd: RANGER, encoding: "utf8" });
-const log = (r.stdout || "") + (r.stderr || "");
-if (/Compilation FAILED|\[FAIL\]/.test(log) || !fs.existsSync(cpp)) {
-  process.stderr.write(log);
-  die("PlayerApp.rgr did not compile to C++");
-}
+install();
+compile(["-l=cpp", "-nodecli", "PlayerApp.rgr", `-d=${BUILD}`, "-o=PlayerApp.cpp"], path.join(BUILD, "PlayerApp.cpp"));
 console.log("  1/3 PlayerApp.rgr -> native/build/PlayerApp.cpp");
 
 // --- 2. The stylesheet and the effects, as C++ -----------------------------------

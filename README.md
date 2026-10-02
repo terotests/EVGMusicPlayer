@@ -10,24 +10,23 @@ native desktop app whose window is the shape of the skin.
 
 ## Building
 
-The player is compiled with [Ranger](https://github.com/terotests/Ranger)'s
-committed compiler and uses its `lib/evg`, so it needs a Ranger checkout,
-by default beside this one:
+Everything comes from npm and git; no Ranger checkout is needed.
+
+- The compiler is [`ranger-compiler`](https://www.npmjs.com/package/ranger-compiler)
+  (a devDependency, `rgrc`).
+- EVG comes from [terotests/evg](https://github.com/terotests/evg): `ranger.json`
+  names the commit, `rgrc install` fetches it into Ranger's package cache
+  (`~/.cache/ranger/packages`, or `RANGER_PKG_CACHE`) and `ranger.lock` pins it.
+  The build scripts run the install themselves.
 
 ```sh
-git clone https://github.com/terotests/Ranger
-git clone https://github.com/terotests/EVGMusicPlayer
-(cd Ranger && npm ci)              # puts lib/evg in place
-cd EVGMusicPlayer
-npm run web                        # compile, assemble, serve on http://127.0.0.1:8131/
+npm install
+npm run web          # compile, assemble, serve on http://127.0.0.1:8131/
 ```
 
-`--ranger <dir>` or `RANGER_DIR` names another checkout
-(`node scripts/build.mjs --ranger ~/src/Ranger`). The build copies
-`PlayerApp.rgr` and `ranger.json` to `<ranger>/gallery/evgmusicplayer/`
-before compiling, so `ranger.json`'s `../../lib/evg` resolves to that
-checkout's EVG. `node scripts/build.mjs --out site/` also writes a
-deployable copy of the page.
+`node scripts/build.mjs --out site/` also writes a deployable copy of the
+page. To move to a newer EVG, change `rev` in `ranger.json` and run
+`npm run deps`, which rewrites `ranger.lock`.
 
 Open files with the note button, a whole folder with the folder button, or
 drop files anywhere on the page. `?demo` runs the visualiser on made-up
@@ -51,6 +50,7 @@ whatever is behind, and the body drags the window.
 
 ```sh
 # macOS: brew install sdl2            Linux: sudo apt-get install libsdl2-dev libgl-dev
+npm install
 npm run native                        # -> native/build/evg-player (+ "EVG Player.app" on macOS)
 native/build/evg-player ~/Music/*.mp3 # or open it and use the note / folder buttons
 npm run native:check                  # smoke check: transparent corners, a track playing
@@ -103,10 +103,11 @@ loader and is not wired up.
 - `web/viz.js` — registers them as surface effects with EVG's painter:
   `evgp-spectrum` (the screen, 32 band parameters `b0`…`b31`, `level`,
   `mode`) and `evgp-speaker` (the cones, pulsed by `level`).
-- `scripts/build.mjs` — compiles against the Ranger checkout and runs
-  `web/build.mjs`, which wraps the compiled module as an ES module and copies
-  EVG's browser helpers (`evg-webgl.js`, `evg-fx.js`, `evg-measure.js`)
-  beside the page.
+- `scripts/build.mjs` — `rgrc install`, compiles `PlayerApp.rgr` to JavaScript
+  and runs `web/build.mjs`, which wraps the compiled module as an ES module
+  and copies EVG's browser helpers (`gl/evg-webgl.js`, `gl/evg-fx.js`,
+  `gl/evg-measure.js`) from the EVG package beside the page.
+  `scripts/ranger.mjs` is the part shared with the native build.
 - `web/main.js` — file pickers, `<audio>`, a Web Audio `AnalyserNode`, and
   the 32 log-spaced bands (40 Hz – 16 kHz) it writes into the effect
   instances' parameters each frame. The music never causes a layout.
