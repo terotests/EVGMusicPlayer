@@ -138,7 +138,7 @@ class PlayerApp {
             return "M6 6h12v12H6z"
         }
         if (name == "file") {
-            return "M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"
+            return "M11 3v10.55A4 4 0 1 0 13 17V7h4V3z"
         }
         if (name == "folder") {
             return "M10 4H4C2.9 4 2 4.9 2 6v12c0 1.1 0.9 2 2 2h16c1.1 0 2-0.9 2-2V8c0-1.1-0.9-2-2-2h-8z"
