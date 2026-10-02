@@ -6,6 +6,9 @@ screen in the middle is a GPU visualiser driven by the music. Written in
 Ranger and drawn by EVG: in a browser with EVG's WebGL painter, and as a
 native desktop app whose window is the shape of the skin.
 
+**Live page: <https://terotests.github.io/EVGMusicPlayer/>** (built from `main`
+by `.github/workflows/pages.yml`).
+
 **License: AGPL-3.0-or-later** (see `LICENSE`).
 
 ## Building
