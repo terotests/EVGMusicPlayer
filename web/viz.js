@@ -5,21 +5,16 @@
 //   evgp-spectrum  the round screen: three visualisers over 32 band levels
 //   evgp-speaker   the speaker cones on the wings, pushed by the bass
 //
-// The GLSL lives in ../shaders and is shared with the native host
-// (native/host.cpp); build.mjs embeds it in generated.js. The stylesheet puts
-// the effects on elements (`evg-surface-effect: evgp-spectrum`) and sets the
-// colours per skin (`evg-fx-hue`). The band levels are not in the document at
-// all: main.js writes them into the effect instance's parameter bag every
-// frame, and the painter reads that bag on every draw, so the music never
-// causes a layout.
+// Each is a manifest and a GLSL body in ../shaders, which the native app
+// registers with EVG's native painter unchanged (EffectDef::fromManifest);
+// here EVG's evg-fx-def.js does the same for evg-webgl.js. build.mjs embeds
+// them in generated.js. The band levels are not in the document: main.js
+// writes them into the effect instance's parameters every frame, so the music
+// never causes a layout.
 
-import { registerSurfaceEffect } from "./evg/gl/evg-webgl.js";
+import { registerEffectManifest } from "./evg/gl/evg-fx-def.js";
 import { EFFECTS, COMMON_GLSL } from "./generated.js";
 
 export const BANDS = 32;
 
-for (const fx of EFFECTS) {
-  const params = { ...fx.params };
-  for (let i = 0; i < fx.bands; i++) params["b" + i] = 0;
-  registerSurfaceEffect({ name: fx.name, layer: "source", params, frag: COMMON_GLSL + fx.glsl });
-}
+for (const fx of EFFECTS) registerEffectManifest(fx, fx.glsl, COMMON_GLSL);

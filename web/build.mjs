@@ -65,7 +65,7 @@ fs.writeFileSync(path.join(HERE, "generated.js"),
   `export const EFFECTS = ${JSON.stringify(effects)};\n`);
 
 // EVG's helpers, followed transitively from what the page imports.
-const ENTRY = ["evg/gl/evg-webgl.js", "evg/gl/evg-fx.js", "evg/gl/evg-measure.js"];
+const ENTRY = ["evg/gl/evg-webgl.js", "evg/gl/evg-fx.js", "evg/gl/evg-fx-def.js", "evg/gl/evg-measure.js"];
 function relativeImports(text) {
   const out = [];
   for (const m of text.matchAll(/(?:^|\s)(?:import|export)[^;]*?from\s*["'](\.[^"']+)["']/g)) out.push(m[1]);

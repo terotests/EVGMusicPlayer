@@ -83,14 +83,17 @@ How the shape is made:
 
 - `host.cpp` — the window, input, file pickers and the frame loop: web/main.js
   for a desktop. It includes the Ranger-generated `PlayerApp.cpp`.
-- `painter.cpp` — EVG's display-list JSON drawn with OpenGL 3.3: rounded and
-  gradient boxes with shadows, stencil-filled paths, strokes, text through
-  stb_truetype, and the surface effects. The effects are the same GLSL files
-  the browser compiles (`shaders/`).
+- The painting is EVG's: [`storm/native`](https://github.com/terotests/evg/tree/master/storm/native)
+  in the EVG package `rgrc install` fetches (MIT). It draws the display-list
+  JSON with OpenGL 3.3 — rounded and gradient boxes with shadows,
+  stencil-filled paths, strokes, text, and the surface effects. The player's
+  effects are manifests + GLSL in `shaders/`, registered unchanged with EVG's
+  WebGL painter (`gl/evg-fx-def.js`) and its native one
+  (`EffectDef::fromManifest`).
 - `audio.cpp` — playback through SDL audio and the analyser: a Blackman
   window, 2048-point FFT, the browser analyser's smoothing and dB range, then
   the same 32 bands as the page.
-- `third_party/` — `stb_truetype.h` and `dr_mp3.h` (public domain / MIT);
+- `third_party/` — `dr_mp3.h` (public domain / MIT-0);
   `fonts/` — Noto Sans (Apache 2.0, `fonts/LICENSE-Apache-2.0.txt`).
 
 The macOS build has not been run yet: it was written against the same SDL2
