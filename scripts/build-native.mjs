@@ -86,6 +86,23 @@ if (MAC) {
   fs.copyFileSync(bin, path.join(app, "MacOS", "evg-player"));
   fs.chmodSync(path.join(app, "MacOS", "evg-player"), 0o755);
   for (const f of fs.readdirSync(fonts)) fs.copyFileSync(path.join(fonts, f), path.join(app, "Resources", "fonts", f));
+  // The bundle's icon, from native/icon/icon-1024.png (scripts/make-icon.mjs)
+  // with the system's own sips and iconutil.
+  const iconPng = path.join(NATIVE, "icon", "icon-1024.png");
+  const iconset = path.join(BUILD, "AppIcon.iconset");
+  let icon = false;
+  if (fs.existsSync(iconPng) && has("sips") && has("iconutil")) {
+    fs.rmSync(iconset, { recursive: true, force: true });
+    fs.mkdirSync(iconset);
+    for (const s of [16, 32, 128, 256, 512]) {
+      for (const [mul, suffix] of [[1, ""], [2, "@2x"]]) {
+        const name = path.join(iconset, `icon_${s}x${s}${suffix}.png`);
+        execFileSync("sips", ["-z", String(s * mul), String(s * mul), iconPng, "--out", name], { stdio: "ignore" });
+      }
+    }
+    execFileSync("iconutil", ["-c", "icns", iconset, "-o", path.join(app, "Resources", "AppIcon.icns")]);
+    icon = true;
+  }
   fs.writeFileSync(path.join(app, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -94,7 +111,7 @@ if (MAC) {
   <key>CFBundleExecutable</key><string>evg-player</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>0.1.0</string>
-  <key>NSHighResolutionCapable</key><true/>
+  <key>NSHighResolutionCapable</key><true/>${icon ? "\n  <key>CFBundleIconFile</key><string>AppIcon</string>" : ""}
 </dict></plist>
 `);
   console.log("  3/3 native/build/evg-player, native/build/EVG Player.app");

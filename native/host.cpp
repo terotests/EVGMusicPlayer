@@ -13,7 +13,8 @@
 //
 // --demo drives the visualiser with made-up levels, --frames N quits after N
 // frames, --shot writes the last frame (RGBA, alpha included) as a PAM image,
-// --press <id> presses a button at start (viz, skin, next…). EVGP_DEBUG=1
+// --press <id> presses a button at start (viz, skin, next…), --icon out.pam
+// writes the 1024 px application icon and quits. EVGP_DEBUG=1
 // reports the shape.
 
 #include <SDL.h>
@@ -21,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -140,36 +142,109 @@ std::string fontDir() {
   return base + "fonts";
 }
 
-// The outline, from what the skin paints: the first frame drawn once more
-// into an offscreen target at one pixel per point, and its alpha read back.
-std::vector<unsigned char> paintMask(Painter& painter, const JVal& list) {
+// One frame drawn into an offscreen target of w x h pixels and read back as
+// RGBA, top row first. The colour is premultiplied, as the painter leaves it.
+std::vector<unsigned char> renderOffscreen(Painter& painter, const JVal& list, int w, int h, const FxOverride& fx) {
   GLuint fbo, color, depth;
   glGenFramebuffers(1, &fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glGenRenderbuffers(1, &color);
   glBindRenderbuffer(GL_RENDERBUFFER, color);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, pageW, pageH);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, w, h);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, color);
   glGenRenderbuffers(1, &depth);
   glBindRenderbuffer(GL_RENDERBUFFER, depth);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, pageW, pageH);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth);
-  painter.draw(list, pageW, pageH, pageW, pageH, 0, nullptr);
-  std::vector<unsigned char> rgba((size_t)pageW * pageH * 4);
-  glReadPixels(0, 0, pageW, pageH, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+  painter.draw(list, pageW, pageH, w, h, 1.3f, fx);
+  std::vector<unsigned char> up((size_t)w * h * 4);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, up.data());
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glDeleteFramebuffers(1, &fbo);
   glDeleteRenderbuffers(1, &color);
   glDeleteRenderbuffers(1, &depth);
+  std::vector<unsigned char> rgba(up.size());
+  for (int y = 0; y < h; y++) std::memcpy(&rgba[(size_t)y * w * 4], &up[(size_t)(h - 1 - y) * w * 4], (size_t)w * 4);
+  return rgba;
+}
+
+// The outline, from what the skin paints: the frame at one pixel per point.
+// A pixel is the player's when it is more than faintly painted, so a soft
+// glow's last whisper does not widen it.
+std::vector<unsigned char> paintMask(Painter& painter, const JVal& list) {
+  std::vector<unsigned char> rgba = renderOffscreen(painter, list, pageW, pageH, nullptr);
   std::vector<unsigned char> m((size_t)pageW * pageH);
-  for (int y = 0; y < pageH; y++) {
-    for (int x = 0; x < pageW; x++) {
-      // GL rows run bottom up. A pixel is the player's when it is more than
-      // faintly painted, so a soft glow's last whisper does not widen it.
-      m[(size_t)y * pageW + x] = rgba[((size_t)(pageH - 1 - y) * pageW + x) * 4 + 3] > 24 ? 255 : 0;
+  for (size_t i = 0; i < m.size(); i++) m[i] = rgba[i * 4 + 3] > 24 ? 255 : 0;
+  return m;
+}
+
+// The icon is the player's face: the round screen in its bezel, as the skin
+// draws it, lit with a fixed spectrum and cut out as a disc. `size` x `size`, straight alpha, top row first.
+std::vector<unsigned char> paintIcon(Painter& painter, const JVal& list, int size, int scale) {
+  int w = pageW * scale, h = pageH * scale;
+  FxOverride lit = [](const std::string& kind, std::map<std::string, float>& p) {
+    float level = 0;
+    for (int i = 0; i < Audio::BANDS; i++) {
+      double s1 = std::sin(2.7 + i * 0.45);
+      float b = (float)(0.25 + 0.35 * s1 * s1 + 0.35 * std::max(0.0, std::sin(11.7 - i * 0.12)) * (1.0 - (double)i / Audio::BANDS));
+      p["b" + std::to_string(i)] = b;
+      if (i < 4) level += b / 4;
+    }
+    p["level"] = level;
+    p["mode"] = 0;
+    p["playing"] = 1;
+  };
+  std::vector<unsigned char> rgba = renderOffscreen(painter, list, w, h, lit);
+  // The bezel in page points (player.css: .bezel, 330 px round, and its
+  // 3 px rim): wide enough for the rim, not for the buttons above it or the
+  // readout below.
+  const double cx = 280.0 * scale, cy = 223.0 * scale, radius = 167.0 * scale;
+  double sx = cx - radius, sy = cy - radius, step = 2 * radius / size;
+  std::vector<unsigned char> out((size_t)size * size * 4, 0);
+  for (int oy = 0; oy < size; oy++) {
+    for (int ox = 0; ox < size; ox++) {
+      // Box filter over the source pixels this one covers, premultiplied.
+      double acc[4] = {0, 0, 0, 0};
+      int n = 0;
+      int ax = (int)std::floor(sx + ox * step), bx = std::max(ax + 1, (int)std::ceil(sx + (ox + 1) * step));
+      int ay = (int)std::floor(sy + oy * step), by = std::max(ay + 1, (int)std::ceil(sy + (oy + 1) * step));
+      for (int y = ay; y < by; y++) {
+        for (int x = ax; x < bx; x++) {
+          n++;
+          if (x < 0 || y < 0 || x >= w || y >= h) continue;
+          const unsigned char* p = &rgba[((size_t)y * w + x) * 4];
+          for (int c = 0; c < 4; c++) acc[c] += p[c];
+        }
+      }
+      // The disc: everything past the glow is cut, with a pixel of softness.
+      double dx = (ox + 0.5) / size * 2 - 1, dy = (oy + 0.5) / size * 2 - 1;
+      double edge = (1.0 - std::sqrt(dx * dx + dy * dy)) * size / 2;
+      double cover = std::max(0.0, std::min(1.0, edge + 0.5));
+      unsigned char* o = &out[((size_t)oy * size + ox) * 4];
+      double a = acc[3] / n;
+      for (int c = 0; c < 3; c++) o[c] = a > 0 ? (unsigned char)std::min(255.0, acc[c] / n * 255.0 / a) : 0;
+      o[3] = (unsigned char)std::lround(a * cover);
     }
   }
-  return m;
+  return out;
+}
+
+// The window's icon — on macOS the Dock's, too, where SDL sets the
+// application's icon from it.
+void setWindowIcon(const std::vector<unsigned char>& rgba, int size) {
+  SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, size, size, 32, SDL_PIXELFORMAT_RGBA32);
+  if (!s) return;
+  SDL_LockSurface(s);
+  for (int y = 0; y < size; y++) std::memcpy((Uint8*)s->pixels + (size_t)y * s->pitch, &rgba[(size_t)y * size * 4], (size_t)size * 4);
+  SDL_UnlockSurface(s);
+  SDL_SetWindowIcon(window, s);
+  SDL_FreeSurface(s);
+}
+
+void writePamTopDown(const std::string& path, const std::vector<unsigned char>& rgba, int w, int h) {
+  std::ofstream f(path, std::ios::binary);
+  f << "P7\nWIDTH " << w << "\nHEIGHT " << h << "\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n";
+  f.write((const char*)rgba.data(), (std::streamsize)rgba.size());
 }
 
 void applyShape() {
@@ -255,6 +330,7 @@ int main(int argc, char** argv) {
   bool demo = false;
   long maxFrames = -1;
   std::string shot;
+  std::string iconOut;
   std::vector<std::string> startFiles;
   std::vector<std::string> keys;  // --press <id>, repeatable: buttons pressed at start, for checks
   for (int i = 1; i < argc; i++) {
@@ -262,6 +338,7 @@ int main(int argc, char** argv) {
     if (a == "--demo") demo = true;
     else if (a == "--frames" && i + 1 < argc) maxFrames = std::atol(argv[++i]);
     else if (a == "--shot" && i + 1 < argc) shot = argv[++i];
+    else if (a == "--icon" && i + 1 < argc) iconOut = argv[++i];
     else if (a == "--press" && i + 1 < argc) keys.push_back(argv[++i]);
     else startFiles.push_back(a);
   }
@@ -452,6 +529,12 @@ int main(int argc, char** argv) {
       // window mapped). The skins share one outline, so once is enough.
       mask = paintMask(painter, list);
       applyShape();
+      setWindowIcon(paintIcon(painter, list, 256, 1), 256);
+      if (!iconOut.empty()) {
+        // --icon: the 1024 px icon the macOS bundle is made from.
+        writePamTopDown(iconOut, paintIcon(painter, list, 1024, 4), 1024, 1024);
+        break;
+      }
     }
     if (lastFrame) break;
   }

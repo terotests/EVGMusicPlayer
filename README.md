@@ -56,6 +56,11 @@ native/build/evg-player ~/Music/*.mp3 # or open it and use the note / folder but
 npm run native:check                  # smoke check: transparent corners, a track playing
 ```
 
+The icon is the player's own round screen, drawn by the player: the running
+binary sets it as its window and Dock icon, and on macOS the bundle's
+`AppIcon.icns` is made from `native/icon/icon-1024.png`
+(`npm run native:icon` draws that file again after a skin change).
+
 Plays MP3 (dr_mp3) and WAV. Close and minimise are the two small buttons on
 the crest; Esc or Q also quits. Files can be passed on the command line or
 dropped on the window. The file and folder buttons use `osascript` on macOS

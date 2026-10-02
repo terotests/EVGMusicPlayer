@@ -11,7 +11,8 @@
     "web": "node scripts/build.mjs && node web/serve.mjs",
     "native": "node scripts/build-native.mjs",
     "native:run": "node scripts/build-native.mjs --run",
-    "native:check": "node scripts/check-native.mjs"
+    "native:check": "node scripts/check-native.mjs",
+    "native:icon": "node scripts/make-icon.mjs"
   },
   "devDependencies": {
     "ranger-compiler": "4.0.1"
