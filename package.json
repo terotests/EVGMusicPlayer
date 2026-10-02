@@ -1,0 +1,12 @@
+{
+  "name": "evg-music-player",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "A skinned music player written in Ranger and drawn by EVG's WebGL painter",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "web": "node scripts/build.mjs && node web/serve.mjs"
+  }
+}

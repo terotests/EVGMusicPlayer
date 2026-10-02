@@ -1,0 +1,334 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * The skin. Every shape's geometry is in PlayerApp.rgr (the outlines are SVG
+ * paths in page pixels); every colour and every place is here. The three
+ * skins are themes: `@vars <theme>` redefines the palette, the rules below
+ * never change. Switching skins is `applyTree(root, "lime")` and nothing else.
+ */
+
+@vars ice {
+  --shell-a: #f4f8fc;
+  --shell-b: #a9b8c8;
+  --wing-a: #dfe8f1;
+  --wing-b: #7f93a8;
+  --crest-a: #ffffff;
+  --crest-b: #c9d6e4;
+  --chin-a: #26344a;
+  --chin-b: #0b1220;
+  --edge: #5c6f86;
+  --bezel-a: #1d6fd8;
+  --bezel-b: #071a3a;
+  --bezel-rim: #9fd4ff;
+  --glow: rgba(64, 170, 255, 0.85);
+  --screen: #020611;
+  --ink: #bfe6ff;
+  --ink-dim: #5f8fb8;
+  --btn-a: #ffffff;
+  --btn-b: #9db0c4;
+  --btn-ink: #12325a;
+  --btn-hot-a: #d8f0ff;
+  --btn-hot-b: #4aa8ff;
+  --play-a: #5cc4ff;
+  --play-b: #0a4fb0;
+  --play-ink: #ffffff;
+  --seek: #0a1830;
+  --seek-fill-a: #6fd0ff;
+  --seek-fill-b: #1b6cff;
+  --speaker-a: #1a2638;
+  --speaker-b: #05080f;
+  --fx-hue: 205;
+  --fx-hue2: 275;
+}
+
+@vars lime {
+  --shell-a: #b9f25a;
+  --shell-b: #3f7d12;
+  --wing-a: #9fdc48;
+  --wing-b: #2f5f0c;
+  --crest-a: #e8ffb0;
+  --crest-b: #7cc22a;
+  --chin-a: #3a6b14;
+  --chin-b: #142807;
+  --edge: #1f3d08;
+  --bezel-a: #6fbf1c;
+  --bezel-b: #1a3505;
+  --bezel-rim: #e6ff9a;
+  --glow: rgba(170, 255, 60, 0.8);
+  --screen: #041003;
+  --ink: #e6ffb8;
+  --ink-dim: #8fc24e;
+  --btn-a: #f0ffd0;
+  --btn-b: #8cc63f;
+  --btn-ink: #1c3a06;
+  --btn-hot-a: #ffffff;
+  --btn-hot-b: #c6ff5a;
+  --play-a: #d6ff6a;
+  --play-b: #4b8f12;
+  --play-ink: #102404;
+  --seek: #0c1f04;
+  --seek-fill-a: #e0ff7a;
+  --seek-fill-b: #6fcf1a;
+  --speaker-a: #c9d6cf;
+  --speaker-b: #4c5a52;
+  --fx-hue: 95;
+  --fx-hue2: 160;
+}
+
+@vars ember {
+  --shell-a: #6e737a;
+  --shell-b: #23262b;
+  --wing-a: #ff9a2e;
+  --wing-b: #b4470a;
+  --crest-a: #ffb54d;
+  --crest-b: #d0600f;
+  --chin-a: #3b3f45;
+  --chin-b: #121417;
+  --edge: #0e0f11;
+  --bezel-a: #8a9099;
+  --bezel-b: #2a2d32;
+  --bezel-rim: #ffb15a;
+  --glow: rgba(255, 140, 30, 0.8);
+  --screen: #0d0d0f;
+  --ink: #ffd29a;
+  --ink-dim: #b07a3c;
+  --btn-a: #c8ccd2;
+  --btn-b: #555b63;
+  --btn-ink: #1a1c1f;
+  --btn-hot-a: #ffe0b0;
+  --btn-hot-b: #ff8a1e;
+  --play-a: #ffb04a;
+  --play-b: #b3420a;
+  --play-ink: #1a0d02;
+  --seek: #1a1b1e;
+  --seek-fill-a: #ffcf7a;
+  --seek-fill-b: #ff6a10;
+  --speaker-a: #3b3f46;
+  --speaker-b: #0c0d0f;
+  --fx-hue: 22;
+  --fx-hue2: 350;
+}
+
+.page {
+  position: relative;
+  width: 560px;
+  height: 600px;
+}
+
+/* --- the shell: paths, each with its own viewBox = the page ------------- */
+
+.wing, .body, .crest, .chin {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 560px;
+  height: 600px;
+}
+
+.wing {
+  fill: var(--wing-b);
+  background: linear-gradient(90deg, var(--wing-a), var(--wing-b));
+  stroke: var(--edge);
+  stroke-width: 2;
+}
+
+.body {
+  fill: var(--shell-b);
+  background: linear-gradient(180deg, var(--shell-a), var(--shell-b));
+  stroke: var(--edge);
+  stroke-width: 2.5;
+}
+
+.crest {
+  fill: var(--crest-b);
+  background: linear-gradient(180deg, var(--crest-a), var(--crest-b));
+}
+
+.chin {
+  fill: var(--chin-b);
+  background: linear-gradient(180deg, var(--chin-a), var(--chin-b));
+  stroke: var(--edge);
+  stroke-width: 1.5;
+}
+
+/* --- speakers: pulsed by the bass, see web/viz.js ----------------------- */
+
+.speaker {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: radial-gradient(circle, var(--speaker-a), var(--speaker-b));
+  border: 2px solid var(--edge);
+  evg-surface-effect: evgp-speaker;
+  evg-effect-on: always;
+  evg-fx-level: 0;
+  evg-fx-hue: var(--fx-hue);
+}
+
+/* --- the screen ---------------------------------------------------------- */
+
+.bezel {
+  position: absolute;
+  left: 115px;
+  top: 58px;
+  width: 330px;
+  height: 330px;
+  border-radius: 165px;
+  background: linear-gradient(160deg, var(--bezel-a), var(--bezel-b));
+  border: 3px solid var(--bezel-rim);
+  box-shadow: 0 0 22px var(--glow);
+}
+
+.screen {
+  position: absolute;
+  left: 135px;
+  top: 78px;
+  width: 290px;
+  height: 290px;
+  border-radius: 145px;
+  background-color: var(--screen);
+  evg-surface-effect: evgp-spectrum;
+  evg-effect-on: always;
+  evg-fx-hue: var(--fx-hue);
+  evg-fx-hue2: var(--fx-hue2);
+}
+
+.gloss {
+  position: absolute;
+  left: 170px;
+  top: 86px;
+  width: 220px;
+  height: 96px;
+  border-radius: 48px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.0));
+}
+
+/* --- the readout under the screen ---------------------------------------- */
+
+.lcd {
+  position: absolute;
+  left: 158px;
+  top: 390px;
+  width: 244px;
+  height: 66px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--chin-b), var(--chin-a));
+  border: 1.5px solid var(--edge);
+}
+
+.title-clip {
+  position: absolute;
+  left: 170px;
+  top: 396px;
+  width: 220px;
+  height: 20px;
+  overflow: hidden;
+}
+
+.title {
+  position: absolute;
+  top: 1px;
+  width: 1200px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.time {
+  position: absolute;
+  left: 170px;
+  top: 418px;
+  width: 220px;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: center;
+}
+
+.info {
+  position: absolute;
+  left: 170px;
+  top: 468px;
+  width: 220px;
+  color: var(--ink-dim);
+  font-size: 10px;
+  text-align: center;
+}
+
+.seek {
+  position: absolute;
+  left: 170px;
+  top: 440px;
+  width: 220px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: var(--seek);
+  border: 1px solid var(--edge);
+}
+
+.seek-fill {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 0px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--seek-fill-a), var(--seek-fill-b));
+}
+
+/* --- buttons -------------------------------------------------------------- */
+
+.btn {
+  position: absolute;
+  background: linear-gradient(180deg, var(--btn-a), var(--btn-b));
+  border: 1.5px solid var(--edge);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  transition: background 120ms;
+}
+
+.btn:hover {
+  background: linear-gradient(180deg, var(--btn-hot-a), var(--btn-hot-b));
+}
+
+.btn:active {
+  background: linear-gradient(0deg, var(--btn-hot-a), var(--btn-hot-b));
+}
+
+.icon {
+  position: absolute;
+  fill: var(--btn-ink);
+}
+
+.small {
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+}
+.icon-small { left: 9px; top: 9px; width: 20px; height: 20px; }
+.icon-big   { left: 13px; top: 13px; width: 30px; height: 30px; fill: var(--play-ink); }
+.icon-tiny  { left: 6px; top: 6px; width: 16px; height: 16px; }
+
+.big {
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--play-a), var(--play-b));
+  box-shadow: 0 0 14px var(--glow);
+}
+
+.tiny {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+}
+
+.b-prev { left: 196px; top: 492px; }
+.b-play { left: 252px; top: 486px; }
+.b-next { left: 326px; top: 492px; }
+
+.b-file   { left: 230px; top: 536px; }
+.b-folder { left: 266px; top: 540px; }
+.b-stop   { left: 302px; top: 536px; }
+
+.b-viz  { left: 48px;  top: 148px; }
+.b-skin { left: 484px; top: 148px; }

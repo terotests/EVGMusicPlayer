@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%23071a3a%27 stroke=%27%239fd4ff%27 stroke-width=%272%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%275%27 fill=%27%235cc4ff%27/%3E%3C/svg%3E" />
+    <title>EVG Player</title>
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        /* A sky over a green hill, for the skin to float on. */
+        background:
+          radial-gradient(140% 60% at 30% 108%, #5fae2e 0 48%, #3f8a1c 62%, transparent 63%),
+          radial-gradient(120% 50% at 85% 112%, #78c23c 0 50%, transparent 51%),
+          linear-gradient(180deg, #2a6fd6 0%, #5d9cec 45%, #a9cdf5 70%, #d9ecfb 100%);
+      }
+      /* The canvas IS the player: transparent around the skin, moved by dragging its body. */
+      #c { position: absolute; display: block; touch-action: none; }
+      #hint {
+        position: fixed; left: 12px; bottom: 10px; color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); pointer-events: none;
+      }
+      #err {
+        position: fixed; left: 12px; top: 12px; right: 12px; color: #ffdddd;
+        background: rgba(120, 0, 0, 0.6); font: 12px ui-monospace, Menlo, monospace;
+        white-space: pre-wrap; pointer-events: none;
+      }
+      #err:empty { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <audio id="audio" preload="auto"></audio>
+    <input id="files" type="file" accept="audio/*,.mp3,.ogg,.wav,.flac,.m4a" multiple hidden />
+    <input id="folder" type="file" webkitdirectory multiple hidden />
+    <div id="hint">Drag the player by its body · drop music files anywhere · wheel = volume · space / ← → / v (visualiser) / k (skin)</div>
+    <div id="err"></div>
+    <noscript>The EVG player needs JavaScript and WebGL 2.</noscript>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

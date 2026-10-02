@@ -1,0 +1,587 @@
+; SPDX-License-Identifier: AGPL-3.0-or-later
+
+; =============================================================================
+; PlayerApp — a skinned music player drawn by EVG
+; =============================================================================
+; A media player in the spirit of the old Windows Media Player skins: the
+; window is not a rectangle but a shape, the chrome is painted, and the round
+; screen in the middle is a GPU visualiser fed by the music.
+;
+; What lives where:
+;
+;   this file      the skin's tree, the playlist, which track is current, what
+;                  the buttons mean, the clock text and the scrolling title
+;   player.css     every colour, every position and the three skins (themes)
+;   web/main.js    the browser: file picker, <audio>, the Web Audio analyser,
+;                  and the 32 band levels it writes straight into the
+;                  visualiser's effect parameters every frame
+;   web/viz.js     the visualiser and speaker shaders (EVG surface effects)
+;
+; The body is a path, and the canvas is transparent wherever nothing is
+; painted, so the page shows through around the shape. `bodyPath()` hands the
+; same outline to the host so a press outside it is not a press on the player.
+;
+; A press returns a COMMAND for the host instead of doing the I/O itself:
+; "open-files", "open-folder", "load", "play", "pause", "stop". The app keeps
+; the playlist and the index; the host owns the audio element.
+; =============================================================================
+
+Import "pkg:evg/EVGElement.rgr"
+Import "pkg:evg/EVGLayout.rgr"
+Import "pkg:evg/EVGDisplayList.rgr"
+Import "pkg:evg/EVGStyleSheet.rgr"
+Import "pkg:evg/EVGTransition.rgr"
+Import "pkg:evg/EVGHitTest.rgr"
+
+class PlayerApp {
+
+    def root@(optional):EVGElement
+    def sheet@(optional):EVGStyleSheet
+    def layout@(optional):EVGLayout
+    def transitions:EVGTransition (new EVGTransition())
+
+    def pageW:double 560.0
+    def pageH:double 600.0
+
+    def hovered:string ""
+    def pressed:string ""
+
+    def themes:[string]
+    def themeIndex:int 0
+    def themeLabels:[string]
+    def vizMode:int 0
+    def vizNames:[string]
+
+    def titles:[string]
+    def current:int -1
+    def playing:boolean false
+    def position:double 0.0
+    def duration:double 0.0
+    def volume:double 0.8
+    def noteText:string ""
+    def noteMs:double 0.0
+
+    def marquee:double 0.0
+    def titleWidth:double 0.0
+
+    def playIcon@(late):EVGElement
+    def titleText@(late):EVGElement
+    def titleClip@(late):EVGElement
+    def timeText@(late):EVGElement
+    def infoText@(late):EVGElement
+    def seekTrack@(late):EVGElement
+    def seekFill@(late):EVGElement
+
+    Constructor () {
+        themes = ([] _:string ("ice" "lime" "ember"))
+        themeLabels = ([] _:string ("ICE" "LIME" "EMBER"))
+        vizNames = ([] _:string ("RING" "TUNNEL" "BARS"))
+        titles = ([] _:string ())
+    }
+
+    fn init:void (css:string) {
+        def s (new EVGStyleSheet())
+        s.parse(css)
+        sheet = s
+        root = (this.build())
+        this.refreshText()
+    }
+
+    ; --- the outline -----------------------------------------------------------
+    ; One SVG path each, in page pixels: the viewBox of every shape is the page,
+    ; so a coordinate here is a coordinate on the canvas.
+
+    sfn bodyPath:string () {
+        return "M280 30 C390 30 470 100 482 200 C486 262 470 330 440 380 C410 436 362 468 344 516 C334 546 312 568 280 568 C248 568 226 546 216 516 C198 468 150 436 120 380 C90 330 74 262 78 200 C90 100 170 30 280 30 Z"
+    }
+
+    sfn wingLeftPath:string () {
+        return "M100 136 C44 144 14 214 14 290 C14 366 44 436 100 444 C124 447 138 426 136 404 L136 176 C138 154 124 133 100 136 Z"
+    }
+
+    sfn wingRightPath:string () {
+        return "M460 136 C516 144 546 214 546 290 C546 366 516 436 460 444 C436 447 422 426 424 404 L424 176 C422 154 436 133 460 136 Z"
+    }
+
+    ; The crest: a raised ridge along the top of the body, drawn over it.
+    sfn crestPath:string () {
+        return "M280 40 C366 40 436 92 462 168 C440 120 372 76 280 76 C188 76 120 120 98 168 C124 92 194 40 280 40 Z"
+    }
+
+    ; The chin plate the transport buttons sit on.
+    sfn chinPath:string () {
+        return "M170 456 C214 446 346 446 390 456 C374 480 356 496 348 520 C338 548 314 560 280 560 C246 560 222 548 212 520 C204 496 186 480 170 456 Z"
+    }
+
+    sfn iconFor:string (name:string) {
+        if (name == "play") {
+            return "M8 5v14l11-7z"
+        }
+        if (name == "pause") {
+            return "M6 5h4v14H6zM14 5h4v14h-4z"
+        }
+        if (name == "prev") {
+            return "M6 6h2v12H6zM9.5 12L18 6v12z"
+        }
+        if (name == "next") {
+            return "M16 6h2v12h-2zM6 18l8.5-6L6 6z"
+        }
+        if (name == "stop") {
+            return "M6 6h12v12H6z"
+        }
+        if (name == "file") {
+            return "M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"
+        }
+        if (name == "folder") {
+            return "M10 4H4C2.9 4 2 4.9 2 6v12c0 1.1 0.9 2 2 2h16c1.1 0 2-0.9 2-2V8c0-1.1-0.9-2-2-2h-8z"
+        }
+        if (name == "viz") {
+            return "M4 14h3v6H4zM10.5 8h3v12h-3zM17 4h3v16h-3z"
+        }
+        if (name == "skin") {
+            return "M12 2C8 7 5 10.5 5 14a7 7 0 0 0 14 0c0-3.5-3-7-7-12z"
+        }
+        return ""
+    }
+
+    ; --- the tree ---------------------------------------------------------------
+
+    sfn div:EVGElement (id:string cls:string) {
+        def e (EVGElement.createDiv())
+        e.id = id
+        e.className = cls
+        return e
+    }
+
+    sfn shape:EVGElement (cls:string d:string) {
+        def e (EVGElement.createPath())
+        e.className = cls
+        e.setAttribute("d" d)
+        e.setAttribute("viewBox" "0 0 560 600")
+        return e
+    }
+
+    sfn label:EVGElement (id:string cls:string text:string) {
+        def e (EVGElement.createSpan())
+        e.id = id
+        e.className = cls
+        e.textContent = text
+        return e
+    }
+
+    ; A round button with an icon. The id is on the button only, so the hit
+    ; test answers with the button wherever on it the press lands.
+    sfn button:EVGElement (id:string size:string place:string icon:string) {
+        def b (PlayerApp.div(id ("btn " + size + " " + place)))
+        b.setAttribute("role" "button")
+        def i (EVGElement.createPath())
+        i.className = ("icon icon-" + size)
+        i.setAttribute("d" (PlayerApp.iconFor(icon)))
+        i.setAttribute("viewBox" "0 0 24 24")
+        b.addChild(i)
+        return b
+    }
+
+    fn build:EVGElement () {
+        def page (PlayerApp.div("" "page"))
+
+        page.addChild((PlayerApp.shape("wing" (PlayerApp.wingLeftPath()))))
+        page.addChild((PlayerApp.shape("wing" (PlayerApp.wingRightPath()))))
+        def body (PlayerApp.shape("body" (PlayerApp.bodyPath())))
+        body.id = "body"
+        page.addChild(body)
+        page.addChild((PlayerApp.shape("crest" (PlayerApp.crestPath()))))
+        page.addChild((PlayerApp.shape("chin" (PlayerApp.chinPath()))))
+
+        ; Three speakers on each wing; the host pulses them with the bass.
+        def k:int 0
+        while (k < 3) {
+            def top:double (190.0 + ((to_double k) * 74.0))
+            def l (PlayerApp.div("" "speaker"))
+            l.setAttribute("left" "34px")
+            l.setAttribute("top" ((to_string (to_int top)) + "px"))
+            page.addChild(l)
+            def r (PlayerApp.div("" "speaker"))
+            r.setAttribute("left" "470px")
+            r.setAttribute("top" ((to_string (to_int top)) + "px"))
+            page.addChild(r)
+            k = (k + 1)
+        }
+
+        page.addChild((PlayerApp.div("" "bezel")))
+        page.addChild((PlayerApp.div("screen" "screen")))
+        page.addChild((PlayerApp.div("" "gloss")))
+
+        page.addChild((PlayerApp.div("" "lcd")))
+        def clip (PlayerApp.div("" "title-clip"))
+        def title (PlayerApp.label("title" "title" ""))
+        clip.addChild(title)
+        page.addChild(clip)
+        titleClip = clip
+        titleText = title
+
+        def time (PlayerApp.label("time" "time" ""))
+        page.addChild(time)
+        timeText = time
+        def info (PlayerApp.label("info" "info" ""))
+        page.addChild(info)
+        infoText = info
+
+        def track (PlayerApp.div("seek" "seek"))
+        def fill (PlayerApp.div("" "seek-fill"))
+        track.addChild(fill)
+        page.addChild(track)
+        seekTrack = track
+        seekFill = fill
+
+        page.addChild((PlayerApp.button("prev" "small" "b-prev" "prev")))
+        def play (PlayerApp.button("play" "big" "b-play" "play"))
+        page.addChild(play)
+        playIcon = (play.getChild(0))
+        page.addChild((PlayerApp.button("next" "small" "b-next" "next")))
+        page.addChild((PlayerApp.button("open-files" "tiny" "b-file" "file")))
+        page.addChild((PlayerApp.button("open-folder" "tiny" "b-folder" "folder")))
+        page.addChild((PlayerApp.button("stop" "tiny" "b-stop" "stop")))
+        page.addChild((PlayerApp.button("viz" "tiny" "b-viz" "viz")))
+        page.addChild((PlayerApp.button("skin" "tiny" "b-skin" "skin")))
+        return page
+    }
+
+    ; --- the playlist -----------------------------------------------------------
+
+    fn clearTracks:void () {
+        titles = ([] _:string ())
+        current = -1
+        playing = false
+        position = 0.0
+        duration = 0.0
+        this.refreshText()
+    }
+
+    ; A file name, which is the title until the host knows better.
+    fn addTrack:void (name:string) {
+        push titles (PlayerApp.prettyName(name))
+        if (current < 0) {
+            current = 0
+        }
+        this.refreshText()
+    }
+
+    sfn prettyName:string (name:string) {
+        def n:string name
+        def dot:int (lastIndexOf n ".")
+        if (dot > 0) {
+            n = (substring n 0 dot)
+        }
+        return n
+    }
+
+    fn trackCount:int () {
+        return (array_length titles)
+    }
+
+    fn currentIndex:int () {
+        return current
+    }
+
+    fn isPlaying:boolean () {
+        return playing
+    }
+
+    fn currentVizMode:int () {
+        return vizMode
+    }
+
+    ; What the host reports from the <audio> element, every frame.
+    fn setTime:void (pos:double dur:double) {
+        position = pos
+        duration = dur
+    }
+
+    fn setPlaying:void (p:boolean) {
+        playing = p
+        this.refreshText()
+    }
+
+    fn setVolume:void (v:double) {
+        volume = v
+        this.note(("VOL " + (to_string (to_int ((v * 100.0) + 0.5))) + "%"))
+    }
+
+    fn note:void (text:string) {
+        noteText = text
+        noteMs = 1400.0
+        this.refreshText()
+    }
+
+    ; The track ended on its own: the next one, or the end of the list.
+    fn trackEnded:string () {
+        if ((current + 1) < (array_length titles)) {
+            current = (current + 1)
+            marquee = 0.0
+            this.refreshText()
+            return "load"
+        }
+        playing = false
+        position = 0.0
+        this.refreshText()
+        return "stop"
+    }
+
+    ; --- presses ----------------------------------------------------------------
+    ; The answer is what the HOST has to do; "" is "nothing, but repaint".
+
+    fn press:string (id:string) {
+        if (id == "open-files") {
+            return "open-files"
+        }
+        if (id == "open-folder") {
+            return "open-folder"
+        }
+        if (id == "skin") {
+            themeIndex = ((themeIndex + 1) % (array_length themes))
+            this.note(("SKIN " + (itemAt themeLabels themeIndex)))
+            return ""
+        }
+        if (id == "viz") {
+            vizMode = ((vizMode + 1) % (array_length vizNames))
+            this.note(("VIZ " + (itemAt vizNames vizMode)))
+            return ""
+        }
+        def n:int (array_length titles)
+        if (n == 0) {
+            if ((id == "play") || ((id == "prev") || (id == "next"))) {
+                return "open-files"
+            }
+            return ""
+        }
+        if (id == "play") {
+            if playing {
+                return "pause"
+            }
+            return "play"
+        }
+        if (id == "stop") {
+            return "stop"
+        }
+        if (id == "next") {
+            current = ((current + 1) % n)
+            marquee = 0.0
+            this.refreshText()
+            return "load"
+        }
+        if (id == "prev") {
+            if (position > 3.0) {
+                return "restart"
+            }
+            current = (((current - 1) + n) % n)
+            marquee = 0.0
+            this.refreshText()
+            return "load"
+        }
+        return ""
+    }
+
+    ; Where on the seek track a press landed, 0..1, or -1 when not on it.
+    fn seekFraction:double (px:double py:double) {
+        this.laidOut()
+        def t:EVGElement seekTrack
+        def w:double t.calculatedWidth
+        if (w <= 0.0) {
+            return -1.0
+        }
+        def f:double ((px - t.calculatedX) / w)
+        if (f < 0.0) {
+            f = 0.0
+        }
+        if (f > 1.0) {
+            f = 1.0
+        }
+        return f
+    }
+
+    ; --- text -------------------------------------------------------------------
+
+    sfn clock:string (secs:double) {
+        def s:int (to_int secs)
+        if (s < 0) {
+            s = 0
+        }
+        def m:int (to_int ((to_double s) / 60.0))
+        def r:int (s % 60)
+        def rs:string (to_string r)
+        if (r < 10) {
+            rs = ("0" + rs)
+        }
+        def ms:string (to_string m)
+        if (m < 10) {
+            ms = ("0" + ms)
+        }
+        return (ms + ":" + rs)
+    }
+
+    fn currentTitle:string () {
+        if ((current >= 0) && (current < (array_length titles))) {
+            return (itemAt titles current)
+        }
+        return "EVG PLAYER  -  press the note or the folder to load music"
+    }
+
+    fn refreshText:void () {
+        def t:EVGElement titleText
+        t.textContent = (this.currentTitle())
+        def i:EVGElement playIcon
+        if playing {
+            i.setAttribute("d" (PlayerApp.iconFor("pause")))
+        } {
+            i.setAttribute("d" (PlayerApp.iconFor("play")))
+        }
+        this.refreshClock()
+    }
+
+    fn refreshClock:void () {
+        def tt:EVGElement timeText
+        tt.textContent = ((PlayerApp.clock(position)) + "  /  " + (PlayerApp.clock(duration)))
+        def info:EVGElement infoText
+        if (noteMs > 0.0) {
+            info.textContent = noteText
+        } {
+            def n:int (array_length titles)
+            if (n == 0) {
+                info.textContent = "NO MEDIA"
+            } {
+                info.textContent = ("TRACK " + (to_string (current + 1)) + " / " + (to_string n))
+            }
+        }
+        def f:EVGElement seekFill
+        def frac:double 0.0
+        if (duration > 0.0) {
+            frac = (position / duration)
+        }
+        if (frac > 1.0) {
+            frac = 1.0
+        }
+        f.setAttribute("width" ((to_string (to_int (frac * 220.0))) + "px"))
+    }
+
+    ; --- the frame --------------------------------------------------------------
+
+    fn tick:void (dtMs:double) {
+        if (noteMs > 0.0) {
+            noteMs = (noteMs - dtMs)
+        }
+        this.refreshClock()
+        ; The title scrolls when it does not fit, and wraps with a gap.
+        def clip:EVGElement titleClip
+        def cw:double clip.calculatedWidth
+        def title:EVGElement titleText
+        ; The title box is wide enough never to wrap, so its own width says
+        ; nothing; the text engine says how long the words are. Bold is a
+        ; little wider than the regular face it measures.
+        if (null? layout) {
+            return
+        }
+        def lay:EVGLayout (unwrap layout)
+        def eng:EVGTextEngine (lay.getTextEngine())
+        def m:EVGTextMetrics (eng.measureRun(title.textContent title.fontFamily 14.0))
+        titleWidth = (m.width * 1.06)
+        if ((titleWidth > cw) && (cw > 0.0)) {
+            marquee = (marquee + (dtMs * 0.035))
+            def span:double (titleWidth + 60.0)
+            if (marquee > span) {
+                marquee = (marquee - span)
+            }
+            title.setAttribute("left" ((to_string (to_int (0.0 - marquee))) + "px"))
+        } {
+            marquee = 0.0
+            def centred:double ((cw - titleWidth) / 2.0)
+            if (centred < 0.0) {
+                centred = 0.0
+            }
+            title.setAttribute("left" ((to_string (to_int centred)) + "px"))
+        }
+        def r:EVGElement (unwrap root)
+        transitions.advanceTree(r dtMs)
+    }
+
+    fn setHover:void (id:string) {
+        hovered = id
+    }
+
+    fn setPressed:void (id:string) {
+        pressed = id
+    }
+
+    fn markStates:void (el:EVGElement) {
+        el.isHovered = false
+        el.isPressed = false
+        if ((strlen el.id) > 0) {
+            if (el.id == hovered) {
+                el.isHovered = true
+            }
+            if (el.id == pressed) {
+                el.isPressed = true
+            }
+        }
+        def i:int 0
+        while (i < (el.getChildCount())) {
+            this.markStates((el.getChild(i)))
+            i = (i + 1)
+        }
+    }
+
+    fn themeName:string () {
+        return (itemAt themes themeIndex)
+    }
+
+    fn laidOut:EVGLayout () {
+        def r:EVGElement (unwrap root)
+        def s:EVGStyleSheet (unwrap sheet)
+        s.setViewport(pageW pageH false)
+        this.markStates(r)
+        s.applyTree(r (this.themeName()))
+        transitions.reconcileTree(r)
+        if (null? layout) {
+            def fresh (new EVGLayout())
+            fresh.setPageSize(pageW pageH)
+            layout = fresh
+        }
+        def lay:EVGLayout (unwrap layout)
+        lay.layout(r)
+        return lay
+    }
+
+    fn displayListJson:string () {
+        def lay:EVGLayout (this.laidOut())
+        def r:EVGElement (unwrap root)
+        def dl (new EVGDisplayList())
+        dl.setTextEngine((lay.getTextEngine()))
+        dl.build(r)
+        return (dl.toJson())
+    }
+
+    fn hitId:string (px:double py:double) {
+        this.laidOut()
+        def r:EVGElement (unwrap root)
+        def hit (new EVGHitTest())
+        return (hit.idAt(r px py))
+    }
+
+    fn styleErrorCount:int () {
+        def s:EVGStyleSheet (unwrap sheet)
+        return (s.getErrorCount())
+    }
+
+    fn styleErrorAt:string (i:int) {
+        def s:EVGStyleSheet (unwrap sheet)
+        return (s.getError(i))
+    }
+
+    fn widthPx:double () {
+        return pageW
+    }
+
+    fn heightPx:double () {
+        return pageH
+    }
+}
