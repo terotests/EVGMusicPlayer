@@ -67,7 +67,7 @@ let sdl = "";
 try { sdl = execSync("pkg-config --cflags --libs sdl2", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch {}
 if (!sdl) { try { sdl = execSync("sdl2-config --cflags --libs", { encoding: "utf8" }).trim(); } catch {} }
 if (!sdl) die(MAC ? "SDL2 not found: brew install sdl2" : "SDL2 not found: sudo apt-get install libsdl2-dev");
-const gl = MAC ? "-framework OpenGL -framework Cocoa" : "-lGL";
+const gl = MAC ? "-framework OpenGL -framework Cocoa -framework QuartzCore" : "-lGL";
 const sources = ["host.cpp", "painter.cpp", "audio.cpp", "platform.cpp", ...(MAC ? ["mac_window.mm"] : [])]
   .map((f) => JSON.stringify(path.join(NATIVE, f))).join(" ");
 const bin = path.join(BUILD, "evg-player");
