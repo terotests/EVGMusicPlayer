@@ -102,6 +102,8 @@ if (OUT) {
     fs.copyFileSync(path.join(HERE, name), path.join(OUT, name));
   }
   copyHelpers(OUT);
+  // The introduction page, at <site>/about/.
+  fs.cpSync(path.join(MODULE, "about"), path.join(OUT, "about"), { recursive: true });
   process.stdout.write(`  ${path.relative(process.cwd(), OUT)}  index.html + ${helpers.size + 4} modules\n`);
 } else {
   process.stdout.write(`  web/  generated-host.js, ${names.length} exports; ${helpers.size} EVG helpers copied\n`);

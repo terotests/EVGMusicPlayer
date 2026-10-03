@@ -24,6 +24,11 @@
         position: fixed; left: 12px; bottom: 10px; color: rgba(255, 255, 255, 0.9);
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); pointer-events: none;
       }
+      #about {
+        position: fixed; right: 12px; bottom: 10px; color: #fff; font-weight: 600;
+        background: rgba(10, 30, 60, 0.45); padding: 4px 10px; border-radius: 999px; text-decoration: none;
+      }
+      #about:hover { background: rgba(10, 30, 60, 0.7); }
       #err {
         position: fixed; left: 12px; top: 12px; right: 12px; color: #ffdddd;
         background: rgba(120, 0, 0, 0.6); font: 12px ui-monospace, Menlo, monospace;
@@ -38,6 +43,7 @@
     <input id="files" type="file" accept="audio/*,.mp3,.ogg,.wav,.flac,.m4a" multiple hidden />
     <input id="folder" type="file" webkitdirectory multiple hidden />
     <div id="hint">Drag the player by its body · drop music files anywhere · wheel = volume · space / ← → / v (visualiser) / k (skin)</div>
+    <a id="about" href="about/">How it works · install the desktop app</a>
     <div id="err"></div>
     <noscript>The EVG player needs JavaScript and WebGL 2.</noscript>
     <script type="module" src="./main.js"></script>

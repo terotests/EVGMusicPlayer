@@ -24,14 +24,28 @@ const TYPES = {
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".map": "application/json; charset=utf-8",
+  ".png": "image/png",
   ".mp3": "audio/mpeg",
 };
 
 const server = http.createServer((req, res) => {
   const pathname = req.url.split("?")[0];
   const name = pathname === "/" ? "/index.html" : pathname;
-  const file = path.join(HERE, path.normalize(name).replace(/^(\.\.[/\\])+/, ""));
-  if (!file.startsWith(HERE) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+  // /about/ is the introduction page, which lives beside web/ in the repo.
+  if (name === "/about") {
+    res.writeHead(301, { Location: "/about/" });
+    res.end();
+    return;
+  }
+  let root = HERE;
+  let rel = name;
+  if (rel.startsWith("/about/")) {
+    root = path.join(HERE, "..", "about");
+    rel = rel.slice("/about".length);
+    if (rel.endsWith("/")) rel += "index.html";
+  }
+  const file = path.join(root, path.normalize(rel).replace(/^(\.\.[/\\])+/, ""));
+  if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
     return;

@@ -1,0 +1,358 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EVG Player — how it works</title>
+    <meta name="description" content="A skinned music player whose window is the shape of its skin, written in Ranger and drawn by EVG — in the browser and as a native app." />
+    <link rel="icon" href="img/icon.png" />
+    <style>
+      :root {
+        --bg: #12151d;
+        --bg2: #1a1f2b;
+        --panel: #1f2533;
+        --line: #2e3646;
+        --ink: #e8ecf3;
+        --ink2: #aab3c3;
+        --ink3: #7d8798;
+        --accent: #5cc4ff;
+        --accent2: #b9f25a;
+        --accent3: #ffa94d;
+        --code: #0d1017;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 50% -200px, #23304a 0%, var(--bg) 60%) no-repeat, var(--bg);
+        color: var(--ink);
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+      nav { display: flex; gap: 18px; align-items: center; padding: 18px 0; font-size: 14px; color: var(--ink2); flex-wrap: wrap; }
+      nav .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; margin-right: auto; }
+      nav .brand img { width: 28px; height: 28px; }
+      nav a { color: var(--ink2); }
+
+      header.hero { text-align: center; padding: 40px 0 10px; }
+      .hero h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -0.02em; }
+      .hero p.lead { font-size: clamp(17px, 2.4vw, 20px); color: var(--ink2); max-width: 680px; margin: 0 auto 26px; }
+      .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+      .btn {
+        display: inline-block; padding: 11px 20px; border-radius: 999px; font-weight: 600; font-size: 15px;
+        border: 1px solid var(--line); color: var(--ink); background: var(--panel);
+      }
+      .btn.primary { background: linear-gradient(180deg, #6fd0ff, #1b6cff); border-color: #3f8cff; color: #fff; }
+      .btn:hover { text-decoration: none; filter: brightness(1.08); }
+
+      .skins { display: flex; justify-content: center; align-items: flex-end; gap: 8px; margin: 40px auto 10px; flex-wrap: wrap; }
+      .skins figure { margin: 0; text-align: center; }
+      .skins img { width: min(300px, 80vw); height: auto; filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.5)); }
+      .skins figcaption { color: var(--ink3); font-size: 13px; margin-top: 4px; }
+
+      section { padding: 44px 0 8px; }
+      h2 { font-size: 28px; margin: 0 0 14px; letter-spacing: -0.01em; }
+      h3 { font-size: 18px; margin: 26px 0 8px; }
+      p, li { color: var(--ink2); }
+      strong { color: var(--ink); }
+      code { font-family: var(--mono); font-size: 0.9em; background: var(--code); border: 1px solid var(--line); padding: 1px 6px; border-radius: 5px; color: #d8e3f5; }
+      pre {
+        background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto;
+        font: 14px/1.55 var(--mono); color: #d8e3f5; margin: 10px 0 18px;
+      }
+      pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+      pre .c { color: var(--ink3); }
+
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 18px; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+      .card h3 { margin-top: 0; display: flex; align-items: center; gap: 8px; }
+      .card p { margin: 6px 0 0; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+      .tabs { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+      .tabs button {
+        font: inherit; font-size: 14px; color: var(--ink2); background: var(--bg2); border: 1px solid var(--line);
+        padding: 7px 14px; border-radius: 999px; cursor: pointer;
+      }
+      .tabs button[aria-selected="true"] { background: var(--panel); color: var(--ink); border-color: #4b5a74; }
+      .tab-panel { display: none; }
+      .tab-panel.on { display: block; }
+
+      table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 15px; }
+      td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink2); vertical-align: top; }
+      td:first-child { color: var(--ink); white-space: nowrap; width: 38%; }
+      kbd { font-family: var(--mono); font-size: 13px; background: var(--bg2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink); }
+
+      .diagram { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 18px 0; overflow-x: auto; }
+      .diagram svg { width: 100%; min-width: 640px; height: auto; display: block; }
+      .diagram .box { fill: var(--panel); stroke: #3c4759; stroke-width: 1.2; }
+      .diagram .t { fill: var(--ink); font: 600 13px -apple-system, "Segoe UI", Roboto, sans-serif; }
+      .diagram .s { fill: var(--ink3); font: 11.5px var(--mono); }
+      .diagram .a { stroke: #5b6a82; stroke-width: 1.5; fill: none; marker-end: url(#arr); }
+      .diagram .web { stroke: var(--accent); }
+      .diagram .nat { stroke: var(--accent3); }
+      .diagram .fx { stroke: var(--accent2); stroke-dasharray: 4 4; }
+
+      .note { border-left: 3px solid var(--accent); background: rgba(92, 196, 255, 0.07); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+      footer { color: var(--ink3); font-size: 14px; padding: 50px 0 40px; border-top: 1px solid var(--line); margin-top: 50px; }
+      @media (max-width: 600px) {
+        td:first-child { white-space: normal; width: 45%; }
+        nav .links { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <span class="brand"><img src="img/icon.png" alt="" />EVG Player</span>
+        <a href="#install">Install</a>
+        <a href="#how">How it works</a>
+        <a href="#controls">Controls</a>
+        <a href="https://github.com/terotests/EVGMusicPlayer">GitHub</a>
+      </nav>
+
+      <header class="hero">
+        <h1>A music player that is<br />the shape of its skin</h1>
+        <p class="lead">
+          In the spirit of the old Windows Media Player skins: no window frame, painted chrome, and a round
+          screen that dances to the music. Written once in Ranger, drawn by EVG — in your browser and as a
+          native desktop app.
+        </p>
+        <div class="buttons">
+          <a class="btn primary" href="../">Open the player in the browser</a>
+          <a class="btn" href="#install">Install the desktop app</a>
+          <a class="btn" href="https://github.com/terotests/EVGMusicPlayer">Source on GitHub</a>
+        </div>
+      </header>
+
+      <div class="skins" aria-label="The three skins">
+        <figure><img src="img/ice.png" alt="The ice skin: a white and blue shell with a ring spectrum on the screen" /><figcaption>Ice · ring</figcaption></figure>
+        <figure><img src="img/lime.png" alt="The lime skin: a green shell with a swirling tunnel on the screen" /><figcaption>Lime · tunnel</figcaption></figure>
+        <figure><img src="img/ember.png" alt="The ember skin: graphite and orange with bar meters on the screen" /><figcaption>Ember · bars</figcaption></figure>
+      </div>
+
+      <section>
+        <div class="cards">
+          <div class="card">
+            <h3><span class="dot" style="background: var(--accent)"></span>A window with no rectangle</h3>
+            <p>On the desktop the window is cut to the skin's outline. Nothing is drawn around it, and clicks outside the outline go to the window underneath. You drag the player by its body.</p>
+          </div>
+          <div class="card">
+            <h3><span class="dot" style="background: var(--accent2)"></span>A GPU visualiser</h3>
+            <p>32 frequency bands from the music drive three shaders: a ring, a tunnel and bar meters. The speakers on the wings pulse with the bass.</p>
+          </div>
+          <div class="card">
+            <h3><span class="dot" style="background: var(--accent3)"></span>One app, two places</h3>
+            <p>The same Ranger source runs as JavaScript in the browser and as C++ on macOS and Linux. Both use the same layout, the same skins and the same shaders.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="install">
+        <h2>Install</h2>
+        <p>
+          The desktop app is built from source. You need <a href="https://nodejs.org/">Node.js</a> 20 or newer,
+          a C++17 compiler and SDL2. The Ranger compiler comes from npm, and the EVG engine is fetched from its
+          own repository at the commit the project pins.
+        </p>
+
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="mac">macOS</button>
+          <button role="tab" aria-selected="false" data-tab="linux">Linux</button>
+          <button role="tab" aria-selected="false" data-tab="web">Browser</button>
+        </div>
+
+        <div class="tab-panel on" id="tab-mac" role="tabpanel">
+          <pre><code><span class="c"># once: the Xcode command line tools and SDL2</span>
+xcode-select --install
+brew install sdl2 node
+
+git clone https://github.com/terotests/EVGMusicPlayer
+cd EVGMusicPlayer
+npm install
+npm run native                <span class="c"># builds native/build/evg-player and "EVG Player.app"</span>
+
+open "native/build/EVG Player.app"
+<span class="c"># or with music straight away:</span>
+native/build/evg-player ~/Music/*.mp3</code></pre>
+          <p>Drag <code>EVG Player.app</code> into <code>/Applications</code> if you want it in Launchpad.</p>
+        </div>
+
+        <div class="tab-panel" id="tab-linux" role="tabpanel">
+          <pre><code><span class="c"># Debian / Ubuntu</span>
+sudo apt-get install build-essential libsdl2-dev libgl-dev nodejs npm
+<span class="c"># optional, for the file and folder buttons</span>
+sudo apt-get install zenity
+
+git clone https://github.com/terotests/EVGMusicPlayer
+cd EVGMusicPlayer
+npm install
+npm run native
+native/build/evg-player ~/Music</code></pre>
+          <p>On X11 the window is cut to the skin with the SHAPE extension, so its edge is hard (one bit per pixel) unless a compositor is running.</p>
+        </div>
+
+        <div class="tab-panel" id="tab-web" role="tabpanel">
+          <p>There is nothing to install: <a href="../">open the player</a>, then press the note to choose files, press the folder to choose a whole folder, or drop files onto the page. Add <code>?demo</code> to the address to see the visualiser without any music.</p>
+          <pre><code><span class="c"># or run the page locally</span>
+git clone https://github.com/terotests/EVGMusicPlayer
+cd EVGMusicPlayer
+npm install
+npm run web                   <span class="c"># http://127.0.0.1:8131/</span></code></pre>
+        </div>
+
+        <div class="note">
+          The desktop app plays <strong>MP3</strong> and <strong>WAV</strong>. The browser version plays whatever your browser plays (MP3, AAC, Ogg, FLAC, WAV…).
+        </div>
+      </section>
+
+      <section id="controls">
+        <h2>Controls</h2>
+        <table>
+          <tr><td>Drag the body</td><td>Move the player around the screen</td></tr>
+          <tr><td>⏮ ▶/⏸ ⏭ ⏹</td><td>Previous / play–pause / next / stop. Previous restarts the track if more than 3 s have played.</td></tr>
+          <tr><td>♪ and the folder</td><td>Open files, or a whole folder (its subfolders too)</td></tr>
+          <tr><td>Seek bar</td><td>Click or drag</td></tr>
+          <tr><td>Mouse wheel</td><td>Volume</td></tr>
+          <tr><td>Bars button · <kbd>V</kbd></td><td>Change the visualiser: ring, tunnel, bars</td></tr>
+          <tr><td>Drop button · <kbd>K</kbd></td><td>Change the skin: ice, lime, ember</td></tr>
+          <tr><td><kbd>Space</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>S</kbd> <kbd>O</kbd></td><td>Play–pause, previous, next, stop, open</td></tr>
+          <tr><td>– and × on the crest</td><td>Minimise and close (desktop). <kbd>Esc</kbd> or <kbd>Q</kbd> also quits.</td></tr>
+          <tr><td>Drop files on it</td><td>Plays them, in the browser and on the desktop</td></tr>
+        </table>
+      </section>
+
+      <section id="how">
+        <h2>How it works</h2>
+        <p>
+          The player is a small <a href="https://github.com/terotests/Ranger">Ranger</a> program, <code>PlayerApp.rgr</code>.
+          It builds the skin as a tree of elements, keeps the playlist and decides what each button means. It does no
+          drawing, sound or file handling itself. A host does those: a page script in the browser, a small C++ program on the desktop.
+        </p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 900 360" role="img" aria-label="PlayerApp.rgr compiles to JavaScript for the browser and to C++ for the desktop. Both run EVG's layout to a display list, which the WebGL painter or the native OpenGL painter draws. The shaders are shared by both painters.">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="#7d8798" />
+              </marker>
+            </defs>
+            <rect class="box" x="20" y="150" width="150" height="62" rx="10" />
+            <text class="t" x="95" y="176" text-anchor="middle">PlayerApp.rgr</text>
+            <text class="s" x="95" y="196" text-anchor="middle">tree · playlist</text>
+
+            <rect class="box" x="230" y="50" width="160" height="62" rx="10" />
+            <text class="t" x="310" y="76" text-anchor="middle">JavaScript</text>
+            <text class="s" x="310" y="96" text-anchor="middle">rgrc -es6</text>
+            <rect class="box" x="230" y="250" width="160" height="62" rx="10" />
+            <text class="t" x="310" y="276" text-anchor="middle">C++</text>
+            <text class="s" x="310" y="296" text-anchor="middle">rgrc -l=cpp</text>
+
+            <rect class="box" x="450" y="150" width="170" height="62" rx="10" />
+            <text class="t" x="535" y="176" text-anchor="middle">EVG layout</text>
+            <text class="s" x="535" y="196" text-anchor="middle">CSS → display list</text>
+
+            <rect class="box" x="690" y="50" width="190" height="62" rx="10" />
+            <text class="t" x="785" y="76" text-anchor="middle">WebGL painter</text>
+            <text class="s" x="785" y="96" text-anchor="middle">browser · Web Audio</text>
+            <rect class="box" x="690" y="250" width="190" height="62" rx="10" />
+            <text class="t" x="785" y="276" text-anchor="middle">OpenGL 3.3 painter</text>
+            <text class="s" x="785" y="296" text-anchor="middle">SDL2 window · dr_mp3</text>
+
+            <rect class="box" x="690" y="150" width="190" height="62" rx="10" style="stroke: var(--accent2)" />
+            <text class="t" x="785" y="176" text-anchor="middle">shaders/*.glsl</text>
+            <text class="s" x="785" y="196" text-anchor="middle">one effect, both painters</text>
+
+            <path class="a web" d="M170 170 C 200 170, 200 81, 228 81" />
+            <path class="a nat" d="M170 192 C 200 192, 200 281, 228 281" />
+            <path class="a web" d="M390 81 C 420 81, 420 168, 448 168" />
+            <path class="a nat" d="M390 281 C 420 281, 420 194, 448 194" />
+            <path class="a web" d="M620 168 C 650 168, 655 81, 688 81" />
+            <path class="a nat" d="M620 194 C 650 194, 655 281, 688 281" />
+            <path class="a fx" d="M785 150 L 785 114" />
+            <path class="a fx" d="M785 212 L 785 248" />
+          </svg>
+        </div>
+
+        <h3>The skin is a stylesheet</h3>
+        <p>
+          The body, wings, crest and chin are SVG paths. Every colour and position is in <code>player.css</code>,
+          and each of the three skins is just a set of CSS variables (<code>@vars ice { … }</code>). Changing the skin
+          changes the theme; the element tree stays the same. EVG lays the tree out and turns it into a
+          <strong>display list</strong>: a flat list of drawing commands. A painter turns that list into pixels.
+        </p>
+
+        <h3>The visualiser is a shader, not a layout</h3>
+        <p>
+          The round screen is an EVG <em>surface effect</em>. The stylesheet puts it on an element
+          (<code>evg-surface-effect: evgp-spectrum</code>), and a GLSL function paints the element's box every frame.
+          The music never touches the tree. Each frame the host writes 32 band levels straight into the effect's
+          parameters, so nothing has to be laid out again.
+        </p>
+        <pre><code><span class="c">// shaders/effects.json: a manifest, read by both painters</span>
+{ "name": "evgp-spectrum", "file": "spectrum.glsl", "arrays": { "b": 32 },
+  "params": { "level": 0, "mode": 0, "hue": 205, "hue2": 275, "playing": 0 } }
+
+<span class="c">// shaders/spectrum.glsl: p is the point in page pixels, local is 0..1 in the box</span>
+vec4 fxColor(vec2 p, vec2 local) {
+  vec2 uv = (local - 0.5) * 2.0;
+  …                                  <span class="c">// p_b0 … p_b31, p_level, uTime</span>
+}</code></pre>
+        <p>
+          The same manifest and GLSL are registered with EVG's WebGL painter in the browser and with EVG's native
+          OpenGL painter on the desktop (<a href="https://github.com/terotests/evg/tree/master/storm/native"><code>evg/storm/native</code></a>).
+          A new effect is one GLSL function and works in both.
+        </p>
+
+        <h3>The sound</h3>
+        <p>
+          In the browser an <code>&lt;audio&gt;</code> element plays the file, and a Web Audio analyser gives the spectrum.
+          On the desktop <code>dr_mp3</code> decodes the file, SDL plays it, and a 2048-point FFT with the browser
+          analyser's window, smoothing and decibel range gives the same 32 bands. If the output device goes away, for
+          example when the computer sleeps or headphones are unplugged, the player opens the default device again
+          and carries on where the music was.
+        </p>
+
+        <h3>The shaped window</h3>
+        <p>
+          On <strong>macOS</strong> the window has no border and is not opaque. Its OpenGL surface is transparent,
+          so what the skin does not paint is not there, and the system shadow follows the outline. A layer-backed
+          OpenGL window still takes clicks in its whole rectangle, so the player watches the pointer and lets clicks
+          through whenever it is outside the outline.
+        </p>
+        <p>
+          On <strong>Linux (X11)</strong> the window is cut with SDL's shaped-window API, using a mask taken from the
+          first frame the player draws.
+        </p>
+        <p>
+          The app icon comes from the same drawing: the player draws its own screen, crops it to a disc, and that
+          becomes the window icon and the Dock icon.
+        </p>
+      </section>
+
+      <footer>
+        EVG Player is MIT licensed. It uses <a href="https://github.com/terotests/evg">EVG</a> (MIT),
+        <a href="https://github.com/terotests/Ranger">Ranger</a>, <a href="https://www.libsdl.org/">SDL2</a>,
+        <a href="https://github.com/mackron/dr_libs">dr_mp3</a> (public domain / MIT-0),
+        <a href="https://github.com/nothings/stb">stb_truetype</a> and Noto Sans (Apache 2.0).
+        · <a href="../">Open the player</a> · <a href="https://github.com/terotests/EVGMusicPlayer">GitHub</a>
+      </footer>
+    </div>
+    <script>
+      // Install tabs: pick the visitor's platform first.
+      const tabs = [...document.querySelectorAll(".tabs button")];
+      function show(name) {
+        for (const b of tabs) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+        for (const p of document.querySelectorAll(".tab-panel")) p.classList.toggle("on", p.id === "tab-" + name);
+      }
+      for (const b of tabs) b.addEventListener("click", () => show(b.dataset.tab));
+      const ua = navigator.userAgent;
+      if (/Linux/.test(ua) && !/Android/.test(ua)) show("linux");
+      else if (!/Mac/.test(ua)) show("web");
+    </script>
+  </body>
+</html>
