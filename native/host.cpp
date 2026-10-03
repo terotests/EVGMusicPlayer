@@ -487,6 +487,23 @@ int main(int argc, char** argv) {
     last = now;
     float t = (float)std::chrono::duration<double>(now - t0).count();
 
+    // Clicks outside the outline belong to whatever is under the window.
+    // Where the window is cut to its shape (X11, Win32) that is already so;
+    // on macOS the window takes every click in its rectangle, so it is told
+    // to let them through while the pointer is outside the skin. With the
+    // pointer outside, the player gets no motion events, so the position
+    // is asked for every frame; a drag in progress keeps what it has.
+    if (!platformUsesShapeApi() && !mask.empty()) {
+      int gx, gy, wx, wy;
+      Uint32 held = SDL_GetGlobalMouseState(&gx, &gy);
+      SDL_GetWindowPosition(window, &wx, &wy);
+      bool over = insideShape(gx - wx, gy - wy);
+      if (!held && !seeking) {
+        platformSetClickThrough(window, !over);
+        if (!over) app->setHover("");
+      }
+    }
+
     if (audio.takeRacing()) recoverAudio("device not keeping time");
     if (audio.takeEnded()) run(app->trackEnded());
     bool playing = audio.playing();

@@ -11,6 +11,7 @@
 void platformMakeTransparent(SDL_Window*) {}
 void platformRefreshShadow(SDL_Window*) {}
 bool platformUsesShapeApi() { return true; }
+void platformSetClickThrough(SDL_Window*, bool) {}
 #endif
 
 namespace {

@@ -23,6 +23,12 @@
 void platformMakeTransparent(SDL_Window* win);  // macOS; no-op elsewhere
 void platformRefreshShadow(SDL_Window* win);    // macOS; no-op elsewhere
 bool platformUsesShapeApi();                    // false on macOS
+// Let mouse events through the window to whatever is under it (true) or
+// take them (false). macOS only: a layer-backed OpenGL window is hit-tested
+// as a rectangle whatever its alpha, so the host switches this as the
+// pointer crosses the skin's outline. Elsewhere the window's shape already
+// does it, and this is a no-op.
+void platformSetClickThrough(SDL_Window* win, bool through);
 
 std::vector<std::string> pickAudioFiles();
 std::string pickFolder();

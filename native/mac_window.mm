@@ -2,7 +2,8 @@
 //
 // macOS: a borderless SDL window made see-through, so the alpha the player
 // paints is the window's alpha: the transparent parts are not drawn, clicks
-// there go to whatever is underneath, and the window server's shadow follows
+// there go to whatever is underneath (platformSetClickThrough, switched by
+// the host as the pointer crosses the outline), and the shadow follows
 // the painted outline.
 //
 // Three things have to be non-opaque, and any one left opaque shows as black
@@ -86,3 +87,12 @@ void platformRefreshShadow(SDL_Window* win) {
 }
 
 bool platformUsesShapeApi() { return false; }
+
+// A layer-backed OpenGL view is hit-tested as its rectangle: the window
+// server does not look at the alpha, so a click on a transparent corner
+// would reach the player and not the window under it. The host calls this
+// as the pointer moves in and out of the outline.
+void platformSetClickThrough(SDL_Window* win, bool through) {
+  NSWindow* w = nsWindow(win);
+  if (w && [w ignoresMouseEvents] != through) [w setIgnoresMouseEvents:through];
+}
