@@ -65,6 +65,37 @@ SDL_HitTestResult hitTest(SDL_Window*, const SDL_Point* p, void*) {
 
 std::string baseName(const std::string& p) { return std::filesystem::path(p).filename().string(); }
 
+// The audio device went away or stopped keeping time (see Audio::takeRacing):
+// open the default output again where the music was. A machine with no
+// output at all would race again at once, so after a few tries in quick
+// succession the player stops and waits for a device to be added.
+bool audioLost = false;
+int reopenStreak = 0;
+Uint64 lastReopenMs = 0;
+
+void recoverAudio(const char* why) {
+  Uint64 now = SDL_GetTicks64();
+  if (now - lastReopenMs > 15000) reopenStreak = 0;
+  lastReopenMs = now;
+  if (++reopenStreak > 3) {
+    audio.pause();
+    audioLost = true;
+    app->note("NO AUDIO DEVICE");
+    std::fprintf(stderr, "evg-player: no working audio device (%s); paused until one is added\n", why);
+    return;
+  }
+  std::string err;
+  if (audio.reopen(err)) {
+    audioLost = false;
+    app->note("AUDIO DEVICE CHANGED");
+    std::fprintf(stderr, "evg-player: audio device reopened (%s)\n", why);
+  } else {
+    audioLost = true;
+    app->note("NO AUDIO DEVICE");
+    std::fprintf(stderr, "evg-player: cannot open an audio device (%s): %s\n", why, err.c_str());
+  }
+}
+
 void run(const std::string& cmd);
 
 void setFiles(std::vector<std::string> list) {
@@ -107,6 +138,10 @@ void run(const std::string& cmd) {
   } else if (cmd == "load") {
     if (loadCurrent()) audio.play();
   } else if (cmd == "play") {
+    if (audioLost) {
+      reopenStreak = 0;
+      recoverAudio("play pressed");
+    }
     if (!audio.hasTrack() && !loadCurrent()) return;
     audio.play();
   } else if (cmd == "pause") {
@@ -426,6 +461,15 @@ int main(int argc, char** argv) {
           dropped.push_back(ev.drop.file);
           SDL_free(ev.drop.file);
           break;
+        case SDL_AUDIODEVICEREMOVED:
+          if (!ev.adevice.iscapture && ev.adevice.which == audio.device()) recoverAudio("device removed");
+          break;
+        case SDL_AUDIODEVICEADDED:
+          if (!ev.adevice.iscapture && audioLost) {
+            reopenStreak = 0;
+            recoverAudio("device added");
+          }
+          break;
         case SDL_DROPCOMPLETE:
           if (!dropped.empty()) setFiles(dropped);
           dropped.clear();
@@ -443,6 +487,7 @@ int main(int argc, char** argv) {
     last = now;
     float t = (float)std::chrono::duration<double>(now - t0).count();
 
+    if (audio.takeRacing()) recoverAudio("device not keeping time");
     if (audio.takeEnded()) run(app->trackEnded());
     bool playing = audio.playing();
     if (playing != wasPlaying) {

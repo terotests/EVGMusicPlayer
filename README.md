@@ -64,7 +64,10 @@ binary sets it as its window and Dock icon, and on macOS the bundle's
 `AppIcon.icns` is made from `native/icon/icon-1024.png`
 (`npm run native:icon` draws that file again after a skin change).
 
-Plays MP3 (dr_mp3) and WAV. Close and minimise are the two small buttons on
+Plays MP3 (dr_mp3) and WAV. When the output device goes away (a display or
+headphones unplugged, the machine asleep) the player opens the default device
+again and carries on where the music was; with no device at all it pauses
+with NO AUDIO DEVICE until one is added. Close and minimise are the two small buttons on
 the crest; Esc or Q also quits. Files can be passed on the command line or
 dropped on the window. The file and folder buttons use `osascript` on macOS
 and `zenity` or `kdialog` on Linux.

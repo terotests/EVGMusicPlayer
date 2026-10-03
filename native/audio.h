@@ -23,6 +23,17 @@ class Audio {
 
   bool open(std::string& err);
   void close();
+  // Close the device and open the system's default output again, keeping the
+  // track, its position and whether it was playing. For a device that went
+  // away (a display or headphones unplugged, the machine asleep) or one that
+  // stopped keeping time.
+  bool reopen(std::string& err);
+  SDL_AudioDeviceID device() const { return dev_; }
+  // True once after the device was seen taking audio much faster than real
+  // time: SDL's stand-in for a lost device, which plays nothing. Decoding
+  // stops the moment it is seen, so the track and its clock stay where the
+  // sound stopped; the host reopens the device.
+  bool takeRacing();
   bool load(const std::string& path, std::string& err);
   void play();
   void pause();
@@ -58,6 +69,9 @@ class Audio {
   bool playing_ = false, srcEnd_ = false, ended_ = false;
   double seekBase_ = 0;
   Uint64 devFrames_ = 0;
+  // The watchdog: frames the device took against the wall clock, per window.
+  Uint64 windowStartMs_ = 0, windowFrames_ = 0;
+  bool racing_ = false;
   float volume_ = 0.8f;
 
   // The analyser.

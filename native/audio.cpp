@@ -68,6 +68,37 @@ void Audio::close() {
   unload();
 }
 
+bool Audio::reopen(std::string& err) {
+  // Where the listener is: the clock, not the decoder, which a device that
+  // raced may have run ahead of what was heard.
+  double at = position();
+  bool wasPlaying = playing_;
+  if (dev_) SDL_CloseAudioDevice(dev_);  // waits for the callback to finish
+  dev_ = 0;
+  playing_ = false;
+  racing_ = false;
+  windowStartMs_ = windowFrames_ = 0;
+  if (!open(err)) return false;
+  if (source_ != None) {
+    SDL_LockAudioDevice(dev_);
+    // The new device may run at another rate: a new converter to it.
+    if (stream_) SDL_FreeAudioStream(stream_);
+    stream_ = SDL_NewAudioStream(AUDIO_F32SYS, (Uint8)channels_, srcRate_, AUDIO_F32SYS, 2, devRate_);
+    SDL_UnlockAudioDevice(dev_);
+    seek(at);
+    if (wasPlaying) play();
+  }
+  return true;
+}
+
+bool Audio::takeRacing() {
+  if (!dev_) return false;
+  SDL_LockAudioDevice(dev_);
+  bool r = racing_;
+  SDL_UnlockAudioDevice(dev_);
+  return r;
+}
+
 void Audio::unload() {
   if (mp3_) {
     drmp3_uninit((drmp3*)mp3_);
@@ -138,6 +169,7 @@ bool Audio::load(const std::string& path, std::string& err) {
     ended_ = false;
     seekBase_ = 0;
     devFrames_ = 0;
+    windowStartMs_ = windowFrames_ = 0;
   }
   if (dev_) SDL_UnlockAudioDevice(dev_);
   return ok;
@@ -179,6 +211,7 @@ void Audio::seek(double s) {
   srcEnd_ = false;
   seekBase_ = s;
   devFrames_ = 0;
+  windowStartMs_ = windowFrames_ = 0;
   SDL_UnlockAudioDevice(dev_);
 }
 
@@ -229,7 +262,33 @@ void Audio::callback(void* self, Uint8* stream, int len) {
 
 void Audio::fill(Uint8* out, int len) {
   std::memset(out, 0, (size_t)len);
-  if (!playing_ || !stream_) return;
+  if (!playing_ || !stream_ || racing_) {
+    windowStartMs_ = windowFrames_ = 0;
+    return;
+  }
+  // A device that takes audio much faster than it can play it is not
+  // playing it (SDL's stand-in for a lost device does exactly that). Stop
+  // feeding it at once, so neither the track nor its clock run away, and
+  // let the host open a real device.
+  // A budget, checked on every call: within a window of a few seconds the
+  // device may take 1.5 times what real time allows, plus 300 ms for the
+  // buffers it fills up front. Past that it is not playing what it takes:
+  // what it took beyond real time never reached a speaker, so the clock
+  // gives it back, and nothing more is decoded for it.
+  Uint64 now = SDL_GetTicks64();
+  if (!windowStartMs_ || now - windowStartMs_ > 4000) {
+    windowStartMs_ = now;
+    windowFrames_ = 0;
+  }
+  double elapsedMs = (double)(now - windowStartMs_);
+  Uint64 want = (Uint64)(len / (int)(2 * sizeof(float)));
+  double budget = (elapsedMs + 300.0) * devRate_ / 1000.0 * 1.5;
+  if ((double)(windowFrames_ + want) > budget) {
+    Uint64 real = (Uint64)(elapsedMs * devRate_ / 1000.0);
+    if (windowFrames_ > real) devFrames_ -= std::min(devFrames_, windowFrames_ - real);
+    racing_ = true;
+    return;
+  }
   float tmp[8192];
   const int chunk = 8192 / std::max(1, channels_);  // frames that fit in tmp
   while (SDL_AudioStreamAvailable(stream_) < len && !srcEnd_) {
@@ -253,6 +312,7 @@ void Audio::fill(Uint8* out, int len) {
     f[i * 2 + 1] = r * volume_;
   }
   devFrames_ += (Uint64)frames;
+  windowFrames_ += (Uint64)frames;
   if (srcEnd_ && SDL_AudioStreamAvailable(stream_) == 0) {
     playing_ = false;
     ended_ = true;
